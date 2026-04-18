@@ -1,0 +1,1535 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0a0a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Training" />
+<title>Training Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface-2: #1d1d1d;
+    --surface-3: #252525;
+    --border: #2a2a2a;
+    --border-bright: #3a3a3a;
+    --text: #f5f5f5;
+    --text-dim: #a0a0a0;
+    --text-faint: #666;
+    --accent: #e8ff3a;
+    --accent-ink: #0a0a0a;
+    --danger: #ff5a5a;
+    --warn: #ffb020;
+    --blue: #58a6ff;
+    --radius: 14px;
+    --radius-sm: 10px;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    font-size: 16px; line-height: 1.4;
+    min-height: 100vh; min-height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+    overflow-x: hidden;
+  }
+  button { font-family: inherit; font-size: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+  input, select, textarea {
+    font-family: inherit; font-size: 16px; color: inherit;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    width: 100%; outline: none;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .display { font-family: 'Archivo Black', sans-serif; letter-spacing: -0.02em; text-transform: uppercase; }
+
+  .app { max-width: 560px; margin: 0 auto; padding: 0 16px 140px; padding-top: env(safe-area-inset-top); }
+
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 4px 20px;
+    gap: 12px;
+  }
+  .top-bar h1 {
+    margin: 0; font-family: 'Archivo Black', sans-serif;
+    font-size: 22px; letter-spacing: -0.02em; text-transform: uppercase;
+  }
+  .top-bar h1 .dot { color: var(--accent); }
+  .top-bar .title-mid {
+    font-family: 'Archivo Black', sans-serif; font-size: 14px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    flex: 1; text-align: center; color: var(--text-dim);
+  }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    display: grid; place-items: center; font-size: 18px; flex-shrink: 0;
+  }
+  .icon-btn:active { transform: scale(0.95); }
+
+  .label {
+    display: block; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--text-faint); margin: 0 0 8px;
+    font-weight: 700;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px 20px; border-radius: var(--radius-sm);
+    font-weight: 600; font-size: 15px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    transition: transform .1s, background .15s, border-color .15s;
+    min-height: 48px;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn-primary:disabled { opacity: 0.4; }
+  .btn-ghost { background: transparent; }
+  .btn-block { width: 100%; }
+  .btn-lg { padding: 18px 24px; font-size: 16px; min-height: 58px; }
+  .btn-danger { color: var(--danger); border-color: var(--border); }
+
+  /* ===== HOME ===== */
+  .hero {
+    background: linear-gradient(160deg, var(--surface) 0%, #1a1a1a 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 20px;
+    margin-bottom: 18px;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute; top: -30px; right: -30px;
+    width: 140px; height: 140px;
+    background: radial-gradient(circle, rgba(232,255,58,0.18), transparent 70%);
+    pointer-events: none;
+  }
+  .hero .kicker {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em;
+    color: var(--accent); font-weight: 700; margin-bottom: 8px;
+  }
+  .hero .count {
+    font-family: 'Archivo Black', sans-serif; font-size: 56px; line-height: 1;
+    letter-spacing: -0.03em; margin-bottom: 6px;
+  }
+  .hero .sub { color: var(--text-dim); font-size: 14px; }
+
+  .section-title {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin: 22px 4px 10px;
+  }
+  .section-title h3 {
+    margin: 0; font-family: 'Archivo Black', sans-serif;
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .section-title .meta { color: var(--text-faint); font-size: 12px; }
+
+  .session-list { display: flex; flex-direction: column; gap: 8px; }
+  .session-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .session-card .date { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 500; }
+  .session-card .name { font-size: 14px; color: var(--text); margin-top: 2px; }
+  .session-card .sets { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  .session-card .tab-badge {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-faint); border: 1px solid var(--border);
+    padding: 3px 7px; border-radius: 4px; white-space: nowrap;
+  }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 14px; }
+
+  /* ===== SESSION TYPE CARDS ===== */
+  .type-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    margin-bottom: 18px;
+  }
+  .type-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 22px 18px;
+    position: relative; overflow: hidden;
+    text-align: left; min-height: 130px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    transition: transform .1s, border-color .15s;
+  }
+  .type-card:active { transform: scale(0.98); }
+  .type-card .type-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    display: grid; place-items: center;
+    font-family: 'Archivo Black', sans-serif; font-size: 18px;
+    color: var(--accent);
+  }
+  .type-card .type-name {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 20px; letter-spacing: -0.01em;
+    text-transform: uppercase;
+  }
+  .type-card .type-meta {
+    font-size: 11px; color: var(--text-faint);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-top: 4px; font-weight: 600;
+  }
+  .type-card.push .type-icon { color: #ff8c5a; }
+  .type-card.pull .type-icon { color: var(--blue); }
+  .type-card.legs .type-icon { color: var(--accent); }
+  .type-card.cardio .type-icon { color: #ff5a9e; }
+
+  /* ===== SESSION SCREEN ===== */
+  .session-meta-bar {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .session-meta-bar .st-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-faint); font-weight: 700; margin-bottom: 4px;
+  }
+  .session-meta-bar .st-value {
+    font-family: 'Archivo Black', sans-serif; font-size: 16px;
+    text-transform: uppercase; letter-spacing: -0.01em;
+  }
+  .session-meta-bar .st-date { color: var(--accent); }
+
+  .exercise-done-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .done-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+  }
+  .done-card .dc-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 4px;
+  }
+  .done-card .dc-name { font-size: 14px; font-weight: 600; }
+  .done-card .dc-sets {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    color: var(--accent); margin-top: 2px;
+  }
+  .done-card .dc-check {
+    font-size: 14px; color: var(--accent);
+  }
+
+  /* ===== EXERCISE SCREEN ===== */
+  .ex-hero {
+    background: linear-gradient(160deg, var(--surface) 0%, var(--surface-2) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+    margin-bottom: 14px;
+  }
+  .ex-hero .ex-kicker {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--accent); font-weight: 700; margin-bottom: 6px;
+  }
+  .ex-hero .ex-title {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 24px; letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  .history-strip {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+  .history-strip .hs-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-faint); margin-bottom: 6px; font-weight: 700;
+  }
+  .history-strip .hs-line {
+    display: flex; gap: 10px; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--text-dim); align-items: baseline;
+    padding: 2px 0;
+  }
+  .history-strip .hs-date {
+    color: var(--accent); min-width: 60px; font-size: 11px;
+  }
+
+  .phase-tabs {
+    display: flex; gap: 4px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 3px; margin-bottom: 14px;
+  }
+  .phase-tabs button {
+    flex: 1; padding: 10px 14px; border-radius: 999px;
+    font-size: 13px; font-weight: 600; color: var(--text-dim);
+  }
+  .phase-tabs button.on {
+    background: var(--accent); color: var(--accent-ink);
+  }
+  .phase-tabs button .ptn {
+    font-size: 10px; opacity: 0.7; margin-left: 4px;
+  }
+
+  .set-log { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .set-log-row {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .set-log-row .sl-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--border);
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 600; color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .set-log-row.warmup .sl-num { color: var(--warn); border-color: var(--warn); }
+  .set-log-row .sl-body { flex: 1; font-size: 14px; }
+  .set-log-row .sl-w { color: var(--text); font-weight: 500; }
+  .set-log-row .sl-x { color: var(--text-faint); padding: 0 4px; }
+  .set-log-row .sl-r { color: var(--accent); font-weight: 500; }
+  .set-log-row .sl-rest {
+    font-size: 11px; color: var(--text-faint); font-family: 'Inter', sans-serif;
+  }
+  .set-log-row .sl-rm { color: var(--text-faint); padding: 4px 8px; }
+  .set-log-row .sl-rm:active { color: var(--danger); }
+
+  /* ===== SET INPUT CARD ===== */
+  .set-input {
+    background: var(--surface); border: 2px solid var(--border-bright);
+    border-radius: var(--radius); padding: 16px;
+    margin-bottom: 14px;
+  }
+  .set-input .si-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .set-input .si-phase {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    font-weight: 700;
+  }
+  .set-input.warmup { border-color: var(--warn); }
+  .set-input.warmup .si-phase { color: var(--warn); }
+  .set-input.working { border-color: var(--accent); }
+  .set-input.working .si-phase { color: var(--accent); }
+  .set-input .si-num { font-size: 11px; color: var(--text-faint); font-weight: 600; }
+
+  .input-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-bottom: 12px;
+  }
+  .input-grid input {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px; font-weight: 500; text-align: center;
+    padding: 16px 10px;
+  }
+  .steppers {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-bottom: 12px;
+  }
+  .stepper-group { display: flex; gap: 6px; }
+  .stepper-group button {
+    flex: 1; padding: 8px; font-size: 12px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text-dim); font-weight: 600;
+  }
+  .stepper-group button:active { background: var(--surface-3); }
+
+  .si-actions { display: flex; gap: 8px; }
+  .si-actions .btn { flex: 1; }
+
+  /* ===== TIMER ===== */
+  .timer-card {
+    background: linear-gradient(180deg, var(--surface) 0%, #1a1a1a 100%);
+    border: 2px solid var(--accent);
+    border-radius: var(--radius); padding: 24px 20px;
+    margin-bottom: 14px;
+    text-align: center; position: relative; overflow: hidden;
+  }
+  .timer-card.overtime { border-color: var(--danger); }
+  .timer-card .t-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em;
+    color: var(--accent); font-weight: 700; margin-bottom: 8px;
+  }
+  .timer-card.overtime .t-label { color: var(--danger); }
+  .timer-card .t-display {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 68px; line-height: 1; letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  .timer-card .t-suggest {
+    font-size: 12px; color: var(--text-faint);
+    margin-top: 4px;
+  }
+  .timer-card .t-actions {
+    display: flex; gap: 8px; margin-top: 16px;
+  }
+  .timer-card .t-actions .btn { flex: 1; }
+  .timer-card .t-progress {
+    position: absolute; bottom: 0; left: 0; height: 3px;
+    background: var(--accent);
+    transition: width 0.5s linear;
+  }
+  .timer-card.overtime .t-progress { background: var(--danger); }
+
+  /* ===== NEXT EXERCISE SUGGESTION ===== */
+  .next-ex {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+    margin-bottom: 14px;
+  }
+  .next-ex h4 {
+    margin: 0 0 10px; font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-faint); font-weight: 700;
+  }
+  .next-ex select {
+    font-size: 15px; font-weight: 500;
+    padding: 14px 14px;
+  }
+  .next-ex .ne-actions {
+    display: flex; gap: 8px; margin-top: 10px;
+  }
+
+  /* ===== MODAL / PICKER ===== */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px); z-index: 50;
+    display: flex; align-items: flex-end; justify-content: center;
+    animation: fadeIn .2s;
+  }
+  .modal {
+    background: var(--surface); width: 100%; max-width: 560px;
+    border-top-left-radius: 20px; border-top-right-radius: 20px;
+    max-height: 85vh; display: flex; flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: slideUp .25s cubic-bezier(.2,.8,.2,1);
+    border: 1px solid var(--border);
+  }
+  .modal-handle {
+    width: 40px; height: 4px; background: var(--border-bright);
+    border-radius: 2px; margin: 10px auto 4px;
+  }
+  .modal-head {
+    padding: 12px 18px 14px; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-head h3 { margin: 0; font-size: 16px; }
+  .modal-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
+
+  .ex-item {
+    width: 100%; text-align: left;
+    padding: 12px 14px; border-radius: var(--radius-sm);
+    background: var(--surface-2); border: 1px solid transparent;
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    margin-bottom: 4px;
+  }
+  .ex-item:active { border-color: var(--accent); }
+  .ex-item .ex-name { font-size: 14px; font-weight: 500; flex: 1; min-width: 0; }
+  .ex-item .ex-last {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--text-faint); max-width: 48%; text-align: right;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ex-item .ex-badge {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 2px 6px; border-radius: 4px;
+    background: var(--surface-3); color: var(--text-faint);
+    margin-right: 6px; font-weight: 700;
+  }
+
+  .exercise-tabs {
+    display: flex; gap: 6px; margin-bottom: 12px;
+    overflow-x: auto; padding-bottom: 2px;
+  }
+  .exercise-tabs::-webkit-scrollbar { display: none; }
+  .ex-tab {
+    padding: 8px 14px; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    font-size: 13px; white-space: nowrap; color: var(--text-dim);
+  }
+  .ex-tab.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+
+  /* ===== FAB ===== */
+  .fab {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    z-index: 20;
+    width: calc(100% - 32px); max-width: 528px;
+  }
+  .fab .btn-primary {
+    width: 100%; min-height: 58px;
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 15px; letter-spacing: 0.05em; text-transform: uppercase;
+    box-shadow: 0 10px 30px rgba(232,255,58,0.25);
+  }
+
+  /* ===== SETUP ===== */
+  .setup-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+  }
+  .setup-card h2 { margin: 0 0 6px; font-size: 20px; }
+  .setup-card p { color: var(--text-dim); font-size: 14px; margin: 0 0 16px; }
+  .setup-card ol { padding-left: 20px; color: var(--text-dim); font-size: 14px; line-height: 1.7; margin: 0 0 16px; }
+  .setup-card code {
+    background: var(--surface-2); padding: 2px 6px; border-radius: 4px;
+    font-size: 13px; font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ===== TOAST ===== */
+  .toast {
+    position: fixed; bottom: calc(90px + env(safe-area-inset-bottom));
+    left: 50%; transform: translateX(-50%);
+    background: var(--surface); border: 1px solid var(--border-bright);
+    border-radius: 10px; padding: 12px 18px;
+    z-index: 100; font-size: 14px;
+    animation: slideUp .25s cubic-bezier(.2,.8,.2,1);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .toast.error { border-color: var(--danger); color: var(--danger); }
+  .toast.success { border-color: var(--accent); color: var(--accent); }
+
+  /* ===== LOADING ===== */
+  .spinner {
+    width: 20px; height: 20px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .loading-full { display: grid; place-items: center; padding: 60px 20px; gap: 12px; color: var(--text-dim); font-size: 13px; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .pulse { animation: pulse 1s infinite; }
+
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="loading-full"><div class="spinner"></div><div>Loading…</div></div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+const LS_URL = 'tt_endpoint';
+
+let state = {
+  endpoint: localStorage.getItem(LS_URL) || '',
+  view: 'home',              // 'home' | 'session' | 'exercise' | 'setup'
+  data: null,
+  loading: false,
+
+  // Active session
+  session: null,
+  // Active exercise being logged
+  active: null,
+
+  // Picker state
+  picker: { open: false, onPick: null, query: '', forType: null },
+
+  // Timer (singleton across view changes)
+  timer: null
+};
+
+// ============================================================
+// API
+// ============================================================
+async function api(action, body) {
+  if (!state.endpoint) throw new Error('No endpoint configured');
+  const url = state.endpoint + (state.endpoint.includes('?') ? '&' : '?') + 'action=' + action;
+  const opts = { method: body ? 'POST' : 'GET', redirect: 'follow' };
+  if (body) {
+    opts.headers = { 'Content-Type': 'text/plain;charset=utf-8' };
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+async function loadData() {
+  state.loading = true; render();
+  try {
+    state.data = await api('bootstrap');
+  } catch (err) {
+    toast('Could not load data: ' + err.message, 'error');
+    state.view = 'setup';
+  } finally {
+    state.loading = false; render();
+  }
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function todayFormatted() {
+  const d = new Date();
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return months[d.getMonth()] + ' ' + d.getDate();
+}
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+function classifyExercise(name) {
+  const n = (name || '').toLowerCase();
+  const kw = {
+    cardio: ['run','jog','cycle','bike','walk','cardio','treadmill','rowing','elliptical','swim'],
+    legs:   ['squat','leg press','leg ext','leg curl','calf','lunge','hip','glute','abduct','adduct','rdl','deadlift'],
+    push:   ['bench','chest press','shoulder press','tricep','lateral raise','overhead press','ohp','push','dip','db press','incline press','decline press','fly','flye','skull crusher','pushdown'],
+    pull:   ['pull','row','chin','lat pulldown','curl','face pull','rear delt','shrug','bicep','hammer','preacher']
+  };
+  for (const t of ['cardio','legs','push','pull']) {
+    if (kw[t].some(k => n.includes(k))) return t;
+  }
+  return 'other';
+}
+
+function formatTime(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function findExercise(name) {
+  if (!state.data || !name) return null;
+  return (state.data.exercises || []).find(e => e.name.toLowerCase() === name.toLowerCase());
+}
+
+// Build the sets string for one exercise
+// warmupSets: [{weight, reps}], workingSets: [{weight, reps}]
+// Format: warmups tagged with W:, working sets grouped by identical repeats
+// e.g. "W:8x10, W:12x8, 16x8x2"
+function formatExerciseSets(warmupSets, workingSets) {
+  // A valid set needs reps > 0. Weight can be '' (bodyweight) or a number.
+  const warmParts = (warmupSets || []).filter(s => s.reps && s.reps > 0)
+    .map(s => 'W:' + fmtSet(s.weight, s.reps));
+
+  // Collapse consecutive identical working sets
+  const clean = (workingSets || []).filter(s => s.reps && s.reps > 0);
+  const groups = [];
+  for (const s of clean) {
+    const last = groups[groups.length - 1];
+    if (last && last.weight === s.weight && last.reps === s.reps) {
+      last.count += 1;
+    } else {
+      groups.push({ weight: s.weight, reps: s.reps, count: 1 });
+    }
+  }
+  const workParts = groups.map(g => {
+    let base = fmtSet(g.weight, g.reps);
+    if (g.count > 1) base += 'x' + g.count;
+    return base;
+  });
+
+  return warmParts.concat(workParts).join(', ');
+}
+
+function fmtSet(weight, reps) {
+  const w = (weight === '' || weight == null) ? 'BW' : String(weight);
+  return w + 'x' + reps;
+}
+
+function isCompound(name) {
+  const n = (name || '').toLowerCase();
+  const cs = ['bench','squat','deadlift','row','pull up','pulldown','chin','overhead press','ohp','shoulder press','chest press','leg press','rdl'];
+  return cs.some(k => n.includes(k));
+}
+
+function suggestedRest(name) {
+  const n = (name || '').toLowerCase();
+  const iso = ['curl','raise','fly','flye','pushdown','extension','calf','abs','crunch','sit up','situp','face pull','hip','abduct','adduct'];
+  if (iso.some(k => n.includes(k))) return 90;
+  if (isCompound(name)) return 240;
+  return 180;
+}
+
+// Rank exercises for a given session type and optionally "after" exercise
+function rankExercises(sessionType, excludeNames, afterExercise) {
+  const ex = state.data.exercises || [];
+  const s8 = state.data.sheet8 || { typeFrequency: {}, nextAfter: {}, frequency: {} };
+
+  const ranked = ex.map(e => {
+    const typeFreq = (s8.typeFrequency[e.name] || {})[sessionType] || 0;
+    const freq = s8.frequency[e.name] || 0;
+    const nextScore = afterExercise && s8.nextAfter[afterExercise]
+      ? (s8.nextAfter[afterExercise][e.name] || 0) : 0;
+    const typeMatch = e.type === sessionType ? 1 : 0;
+
+    // Compound score: next-after is strongest, then type-frequency, then frequency, then name match
+    const score = nextScore * 1000 + typeFreq * 100 + freq * 10 + typeMatch * 5;
+    return { e, score, nextScore, typeFreq };
+  }).filter(r => !excludeNames || !excludeNames.includes(r.e.name));
+
+  // Separate "relevant" (has score > 0) from the rest
+  const relevant = ranked.filter(r => r.score > 0);
+  const other = ranked.filter(r => r.score === 0);
+  relevant.sort((a, b) => b.score - a.score);
+  other.sort((a, b) => a.e.name.localeCompare(b.e.name));
+
+  return relevant.concat(other).map(r => ({ ...r.e, _score: r.score, _nextScore: r.nextScore }));
+}
+
+// ============================================================
+// RENDER: ROUTER
+// ============================================================
+function render() {
+  const root = document.getElementById('app');
+  if (!state.endpoint) {
+    root.innerHTML = renderSetup();
+    bindSetup();
+    return;
+  }
+  if (state.loading) {
+    root.innerHTML = '<div class="loading-full"><div class="spinner"></div><div>Loading…</div></div>';
+    return;
+  }
+
+  // Clear any existing pickers before re-rendering
+  const existingBackdrop = document.getElementById('pickerBackdrop');
+  if (existingBackdrop) existingBackdrop.remove();
+
+  if (state.view === 'home') {
+    root.innerHTML = renderTopBar() + renderHome();
+    bindHome();
+  } else if (state.view === 'session') {
+    root.innerHTML = renderTopBar('session') + renderSession();
+    bindSession();
+  } else if (state.view === 'exercise') {
+    root.innerHTML = renderTopBar('exercise') + renderExercise();
+    bindExercise();
+  }
+
+  // Re-open picker if needed
+  if (state.picker.open) {
+    document.body.insertAdjacentHTML('beforeend', renderPicker());
+    bindPicker();
+  }
+}
+
+function renderTopBar(context) {
+  let left = `<h1>Training<span class="dot">.</span></h1>`;
+  let mid = '';
+  if (context === 'session') {
+    left = `<button class="icon-btn" id="backBtn" aria-label="Back">←</button>`;
+    mid = `<div class="title-mid">${escapeHtml(state.session?.type || '')} Session</div>`;
+  } else if (context === 'exercise') {
+    left = `<button class="icon-btn" id="backBtn" aria-label="Back">←</button>`;
+    mid = `<div class="title-mid">Logging</div>`;
+  }
+  return `
+    <div class="top-bar">
+      ${left}
+      ${mid}
+      <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
+    </div>
+  `;
+}
+
+// ============================================================
+// SETUP SCREEN
+// ============================================================
+function renderSetup() {
+  return `
+    <div class="top-bar"><h1>Setup<span class="dot">.</span></h1></div>
+    <div class="setup-card">
+      <h2>Connect your sheet</h2>
+      <p>Paste the Google Apps Script Web App URL.</p>
+      <ol>
+        <li>Open your Google Sheet → <b>Extensions</b> → <b>Apps Script</b></li>
+        <li>Paste the provided <code>Code.gs</code> and save</li>
+        <li><b>Deploy → Manage deployments</b>, edit existing or create new Web app</li>
+        <li>Execute as <b>Me</b>, access <b>Anyone</b>, Deploy</li>
+      </ol>
+      <label class="label" for="urlInput">Web App URL</label>
+      <input id="urlInput" type="url" placeholder="https://script.google.com/macros/s/.../exec" value="${escapeHtml(state.endpoint || '')}" />
+      <div style="height:12px"></div>
+      <button class="btn btn-primary btn-block btn-lg" id="saveUrlBtn">Connect</button>
+    </div>
+  `;
+}
+
+function bindSetup() {
+  document.getElementById('saveUrlBtn').addEventListener('click', () => {
+    const v = document.getElementById('urlInput').value.trim();
+    if (!v.startsWith('http')) { toast('Enter a valid URL', 'error'); return; }
+    localStorage.setItem(LS_URL, v);
+    state.endpoint = v;
+    loadData();
+  });
+}
+
+// ============================================================
+// HOME SCREEN
+// ============================================================
+function renderHome() {
+  const d = state.data || { recentSessions: [], exercises: [] };
+  const recent = d.recentSessions.slice(0, 6);
+
+  return `
+    <div class="hero">
+      <div class="kicker">Today · ${escapeHtml(todayFormatted())}</div>
+      <div class="count mono">${d.recentSessions.length}</div>
+      <div class="sub">entries logged · ${d.exercises.length} exercises in library</div>
+    </div>
+
+    <div class="section-title">
+      <h3>Start Session</h3>
+      <span class="meta">pick one</span>
+    </div>
+    <div class="type-grid">
+      ${renderTypeCard('push', 'Push', 'chest · shoulders · triceps')}
+      ${renderTypeCard('pull', 'Pull', 'back · biceps · rear delts')}
+      ${renderTypeCard('legs', 'Legs', 'quads · hams · glutes · calves')}
+      ${renderTypeCard('cardio', 'Cardio', 'run · bike · conditioning')}
+    </div>
+
+    <div class="section-title">
+      <h3>Recent Activity</h3>
+      <span class="meta">${recent.length} shown</span>
+    </div>
+    <div class="session-list">
+      ${recent.length === 0
+        ? `<div class="empty-state">No sessions yet. Pick a type above.</div>`
+        : recent.map(s => `
+          <div class="session-card">
+            <div style="flex:1; min-width: 0;">
+              <div class="date">${escapeHtml(s.date || '—')}</div>
+              <div class="name">${escapeHtml(s.exercise)}</div>
+              <div class="sets">${escapeHtml(s.sets)}</div>
+            </div>
+            <div class="tab-badge">${escapeHtml(s.tab)}</div>
+          </div>
+        `).join('')
+      }
+    </div>
+  `;
+}
+
+function renderTypeCard(id, name, subtitle) {
+  const icons = { push: 'PSH', pull: 'PUL', legs: 'LEG', cardio: 'CRD' };
+  return `
+    <button class="type-card ${id}" data-type="${id}">
+      <div class="type-icon">${icons[id]}</div>
+      <div>
+        <div class="type-name">${name}</div>
+        <div class="type-meta">${escapeHtml(subtitle)}</div>
+      </div>
+    </button>
+  `;
+}
+
+function bindHome() {
+  document.getElementById('settingsBtn').addEventListener('click', openSettings);
+  document.querySelectorAll('[data-type]').forEach(btn => {
+    btn.addEventListener('click', () => startSession(btn.dataset.type));
+  });
+}
+
+function startSession(type) {
+  const typeName = { push: 'Push', pull: 'Pull', legs: 'Legs', cardio: 'Cardio' }[type];
+  state.session = {
+    type: typeName,
+    typeKey: type,
+    date: todayFormatted(),
+    entries: [],        // completed exercises: {exercise, sets, notes}
+    lastExercise: null  // last exercise name for suggestions
+  };
+  state.view = 'session';
+  render();
+  // Immediately open picker for first exercise
+  openExercisePicker(type, null);
+}
+
+// ============================================================
+// SESSION SCREEN
+// ============================================================
+function renderSession() {
+  const s = state.session;
+  if (!s) return '<div class="empty-state">No session</div>';
+
+  const last = s.lastExercise;
+  const suggestions = rankExercises(s.typeKey, s.entries.map(e => e.exercise), last).slice(0, 8);
+
+  return `
+    <div class="session-meta-bar">
+      <div>
+        <div class="st-label">Type</div>
+        <div class="st-value">${escapeHtml(s.type)}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="st-label">Date</div>
+        <div class="st-value st-date mono">${escapeHtml(s.date)}</div>
+      </div>
+    </div>
+
+    ${s.entries.length > 0 ? `
+      <div class="section-title">
+        <h3>Completed</h3>
+        <span class="meta">${s.entries.length}</span>
+      </div>
+      <div class="exercise-done-list">
+        ${s.entries.map((e, i) => `
+          <div class="done-card">
+            <div class="dc-head">
+              <div class="dc-name">${escapeHtml(e.exercise)}</div>
+              <div class="dc-check">✓</div>
+            </div>
+            <div class="dc-sets">${escapeHtml(e.sets)}</div>
+            ${e.notes ? `<div style="font-size:12px;color:var(--text-faint);margin-top:4px;">${escapeHtml(e.notes)}</div>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+
+    ${last ? `
+      <div class="next-ex">
+        <h4>Usually next after ${escapeHtml(last)}</h4>
+        <select id="nextExSelect">
+          <option value="">— pick your next exercise —</option>
+          ${suggestions.map(e => {
+            const badge = e._nextScore > 0 ? ' ★' : '';
+            return `<option value="${escapeHtml(e.name)}">${escapeHtml(e.name)}${badge}</option>`;
+          }).join('')}
+        </select>
+        <div class="ne-actions">
+          <button class="btn btn-primary btn-block" id="goNextBtn">Start this exercise</button>
+          <button class="btn" id="browseBtn">Browse all</button>
+        </div>
+      </div>
+    ` : `
+      <button class="btn btn-primary btn-block btn-lg" id="pickFirstBtn" style="margin-bottom: 14px;">
+        + Add Exercise
+      </button>
+    `}
+
+    <div class="fab">
+      <button class="btn btn-primary btn-lg" id="finishSessionBtn" ${s.entries.length === 0 ? 'disabled' : ''}>
+        Finish & Save Session
+      </button>
+    </div>
+  `;
+}
+
+function bindSession() {
+  document.getElementById('backBtn').addEventListener('click', () => {
+    if (state.session.entries.length > 0 && !confirm('Discard this session?')) return;
+    state.session = null; state.view = 'home'; render();
+  });
+  document.getElementById('settingsBtn').addEventListener('click', openSettings);
+
+  const pickFirst = document.getElementById('pickFirstBtn');
+  if (pickFirst) pickFirst.addEventListener('click', () => {
+    openExercisePicker(state.session.typeKey, null);
+  });
+
+  const browse = document.getElementById('browseBtn');
+  if (browse) browse.addEventListener('click', () => {
+    openExercisePicker(state.session.typeKey, state.session.lastExercise);
+  });
+
+  const goNext = document.getElementById('goNextBtn');
+  if (goNext) goNext.addEventListener('click', () => {
+    const sel = document.getElementById('nextExSelect');
+    const name = sel.value;
+    if (!name) { toast('Pick an exercise first', 'error'); return; }
+    openExerciseScreen(name);
+  });
+
+  const finish = document.getElementById('finishSessionBtn');
+  if (finish) finish.addEventListener('click', saveSession);
+}
+
+// ============================================================
+// EXERCISE SCREEN — warmup & working sets + timer
+// ============================================================
+function openExerciseScreen(name) {
+  const exMeta = findExercise(name);
+  state.active = {
+    name: name,
+    restSec: exMeta ? exMeta.restSec : suggestedRest(name),
+    warmupSets: [],     // [{weight, reps}]
+    workingSets: [],
+    phase: 'warmup',    // 'warmup' | 'working'
+    // Current input
+    current: { weight: '', reps: '' },
+    notes: '',
+    // Rest timer
+    timer: null   // {startedAt, total, remaining, paused}
+  };
+  state.view = 'exercise';
+  render();
+}
+
+function renderExercise() {
+  const a = state.active;
+  if (!a) return '';
+  const exMeta = findExercise(a.name);
+  const history = exMeta ? exMeta.history : [];
+
+  const warmupCount = a.warmupSets.length;
+  const workingCount = a.workingSets.length;
+
+  const currentSetNum = a.phase === 'warmup' ? warmupCount + 1 : workingCount + 1;
+
+  return `
+    <div class="ex-hero">
+      <div class="ex-kicker">${escapeHtml(state.session.type)} · ${escapeHtml(state.session.date)}</div>
+      <div class="ex-title">${escapeHtml(a.name)}</div>
+    </div>
+
+    ${history.length ? `
+      <div class="history-strip">
+        <div class="hs-label">Last performances</div>
+        ${history.slice(0, 3).map(h => `
+          <div class="hs-line">
+            <span class="hs-date">${escapeHtml(h.date)}</span>
+            <span>${escapeHtml(h.sets)}</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+
+    <div class="phase-tabs">
+      <button class="${a.phase === 'warmup' ? 'on' : ''}" data-phase="warmup">Warmup<span class="ptn">${warmupCount}</span></button>
+      <button class="${a.phase === 'working' ? 'on' : ''}" data-phase="working">Working<span class="ptn">${workingCount}</span></button>
+    </div>
+
+    ${renderLoggedSets(a)}
+
+    ${a.timer ? renderTimer(a) : renderSetInput(a, currentSetNum)}
+
+    <div style="margin-top: 14px;">
+      <label class="label">Notes (optional)</label>
+      <input id="exNotes" type="text" placeholder="felt strong, dropset, etc." value="${escapeHtml(a.notes || '')}" />
+    </div>
+
+    <div class="fab">
+      <button class="btn btn-primary btn-lg" id="finishExBtn" ${workingCount === 0 ? 'disabled' : ''}>
+        Finish Exercise · ${workingCount} working set${workingCount !== 1 ? 's' : ''}
+      </button>
+    </div>
+  `;
+}
+
+function renderLoggedSets(a) {
+  const all = [
+    ...a.warmupSets.map((s, i) => ({ ...s, kind: 'warmup', idx: i })),
+    ...a.workingSets.map((s, i) => ({ ...s, kind: 'working', idx: i }))
+  ];
+  if (all.length === 0) return '';
+  return `
+    <div class="set-log">
+      ${all.map((s, i) => `
+        <div class="set-log-row ${s.kind}">
+          <div class="sl-num">${s.kind === 'warmup' ? 'W' : i - a.warmupSets.length + 1}</div>
+          <div class="sl-body">
+            <span class="sl-w">${escapeHtml(s.weight === '' ? 'BW' : s.weight)}</span>
+            <span class="sl-x">×</span>
+            <span class="sl-r">${escapeHtml(String(s.reps))}</span>
+            ${s.restAfter != null ? `<span class="sl-rest"> · rested ${formatTime(s.restAfter)}</span>` : ''}
+          </div>
+          <button class="sl-rm" data-rmset="${s.kind}:${s.idx}" aria-label="Remove">×</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderSetInput(a, setNum) {
+  // Suggest defaults from last performance
+  const exMeta = findExercise(a.name);
+  let suggestW = '', suggestR = '';
+  if (exMeta && exMeta.history && exMeta.history[0]) {
+    const parsed = parseFirstSet(exMeta.history[0].sets, a.phase === 'warmup');
+    if (parsed) {
+      suggestW = parsed.weight;
+      suggestR = parsed.reps;
+    }
+  }
+  // If there's already a logged set in the current phase, suggest its values
+  const prevInPhase = a.phase === 'warmup'
+    ? a.warmupSets[a.warmupSets.length - 1]
+    : a.workingSets[a.workingSets.length - 1];
+  if (prevInPhase) { suggestW = prevInPhase.weight; suggestR = prevInPhase.reps; }
+
+  const currentW = a.current.weight !== '' ? a.current.weight : suggestW;
+  const currentR = a.current.reps !== '' ? a.current.reps : suggestR;
+
+  return `
+    <div class="set-input ${a.phase}">
+      <div class="si-head">
+        <div class="si-phase">${a.phase === 'warmup' ? 'Warmup Set' : 'Working Set'}</div>
+        <div class="si-num">Set #${setNum}</div>
+      </div>
+
+      <div class="input-grid">
+        <div>
+          <label class="label">Weight (kg)</label>
+          <input id="wIn" type="text" inputmode="decimal" placeholder="kg / BW"
+                 value="${escapeHtml(String(currentW))}"
+                 autocomplete="off" />
+        </div>
+        <div>
+          <label class="label">Reps</label>
+          <input id="rIn" type="text" inputmode="numeric" placeholder="reps"
+                 value="${escapeHtml(String(currentR))}"
+                 autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="steppers">
+        <div class="stepper-group">
+          <button data-w-adj="-2.5">−2.5</button>
+          <button data-w-adj="-0.5">−0.5</button>
+          <button data-w-adj="0.5">+0.5</button>
+          <button data-w-adj="2.5">+2.5</button>
+        </div>
+        <div class="stepper-group">
+          <button data-r-adj="-1">−1</button>
+          <button data-r-adj="1">+1</button>
+        </div>
+      </div>
+
+      <div class="si-actions">
+        <button class="btn btn-primary btn-block btn-lg" id="finishSetBtn">
+          Finish Set → Rest
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderTimer(a) {
+  const t = a.timer;
+  const total = t.total;
+  const remaining = t.remaining;
+  const isOver = remaining < 0;
+  const pct = isOver ? 0 : Math.max(0, (remaining / total) * 100);
+
+  return `
+    <div class="timer-card ${isOver ? 'overtime' : ''}">
+      <div class="t-label">${isOver ? 'Rest Overtime' : 'Resting'}</div>
+      <div class="t-display ${remaining <= 10 && remaining >= 0 ? 'pulse' : ''}">
+        ${isOver ? '+' : ''}${formatTime(Math.abs(remaining))}
+      </div>
+      <div class="t-suggest">Suggested: ${formatTime(total)} · ${isCompound(a.name) ? 'Compound' : (a.restSec <= 90 ? 'Isolation' : 'Medium')}</div>
+      <div class="t-actions">
+        <button class="btn" id="addTimeBtn">+30s</button>
+        <button class="btn btn-primary" id="nextSetBtn">Start Next Set</button>
+      </div>
+      <div class="t-progress" style="width: ${pct}%;"></div>
+    </div>
+  `;
+}
+
+// Parse the first numeric set of a sets string — used to suggest weight/reps
+function parseFirstSet(str, preferWarmup) {
+  if (!str) return null;
+  const parts = str.split(',').map(s => s.trim()).filter(Boolean);
+  if (parts.length === 0) return null;
+  // If preferWarmup, take the first part (lightest usually).
+  // Else take the last numeric one (working weight).
+  const p = preferWarmup ? parts[0] : parts[parts.length - 1];
+  return parseSetToken(p);
+}
+
+function parseSetToken(p) {
+  let raw = p.replace(/^W:/i, '').trim();
+  const norm = raw.replace(/\s*x\s*/gi, 'x');
+  const tokens = norm.split('x');
+  if (tokens.length < 2) return null;
+  let weight = tokens[0], reps = parseInt(tokens[1], 10);
+  if (weight === '' && tokens[0] === '') weight = 'BW';
+  if (isNaN(reps)) return null;
+  // Normalize BW
+  if (/bw/i.test(weight)) weight = '';
+  if (/bar/i.test(weight)) weight = '';
+  return { weight: weight, reps: reps };
+}
+
+function bindExercise() {
+  const a = state.active;
+  document.getElementById('backBtn').addEventListener('click', () => {
+    if (a.workingSets.length > 0 || a.warmupSets.length > 0) {
+      if (!confirm('Discard this exercise?')) return;
+    }
+    state.active = null;
+    if (state.timer) { clearInterval(state.timer); state.timer = null; }
+    state.view = 'session';
+    render();
+  });
+  document.getElementById('settingsBtn').addEventListener('click', openSettings);
+
+  // Phase tabs
+  document.querySelectorAll('[data-phase]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      a.phase = btn.dataset.phase;
+      a.current = { weight: '', reps: '' };
+      render();
+    });
+  });
+
+  // Set input
+  const wIn = document.getElementById('wIn');
+  const rIn = document.getElementById('rIn');
+  if (wIn) wIn.addEventListener('input', e => { a.current.weight = e.target.value; });
+  if (rIn) rIn.addEventListener('input', e => { a.current.reps = e.target.value; });
+
+  document.querySelectorAll('[data-w-adj]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const delta = parseFloat(btn.dataset.wAdj);
+      const cur = parseFloat(wIn.value);
+      const next = isNaN(cur) ? delta : Math.max(0, Math.round((cur + delta) * 10) / 10);
+      wIn.value = next;
+      a.current.weight = String(next);
+    });
+  });
+  document.querySelectorAll('[data-r-adj]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const delta = parseInt(btn.dataset.rAdj, 10);
+      const cur = parseInt(rIn.value, 10);
+      const next = isNaN(cur) ? Math.max(0, delta) : Math.max(0, cur + delta);
+      rIn.value = next;
+      a.current.reps = String(next);
+    });
+  });
+
+  // Finish set → start timer
+  const finishSetBtn = document.getElementById('finishSetBtn');
+  if (finishSetBtn) finishSetBtn.addEventListener('click', finishSet);
+
+  // Remove a logged set
+  document.querySelectorAll('[data-rmset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const [kind, idx] = btn.dataset.rmset.split(':');
+      const arr = kind === 'warmup' ? a.warmupSets : a.workingSets;
+      arr.splice(+idx, 1);
+      render();
+    });
+  });
+
+  // Timer controls
+  const addTime = document.getElementById('addTimeBtn');
+  if (addTime) addTime.addEventListener('click', () => {
+    a.timer.total += 30;
+    a.timer.remaining += 30;
+    render();
+  });
+  const nextSet = document.getElementById('nextSetBtn');
+  if (nextSet) nextSet.addEventListener('click', () => {
+    stopTimer();
+    render();
+  });
+
+  // Notes
+  const notes = document.getElementById('exNotes');
+  if (notes) notes.addEventListener('input', e => { a.notes = e.target.value; });
+
+  // Finish exercise
+  const finEx = document.getElementById('finishExBtn');
+  if (finEx) finEx.addEventListener('click', finishExercise);
+}
+
+function finishSet() {
+  const a = state.active;
+  const wIn = document.getElementById('wIn');
+  const rIn = document.getElementById('rIn');
+  let weight = (wIn.value || '').trim();
+  const reps = parseInt(rIn.value, 10);
+
+  if (!reps || reps <= 0) { toast('Enter reps', 'error'); return; }
+
+  // Normalize BW
+  if (/^(bw|bodyweight)$/i.test(weight)) weight = '';
+
+  const entry = { weight: weight, reps: reps };
+  if (a.phase === 'warmup') a.warmupSets.push(entry);
+  else a.workingSets.push(entry);
+
+  a.current = { weight: '', reps: '' };
+
+  // Start rest timer automatically
+  startTimer(a.restSec);
+  render();
+}
+
+function startTimer(sec) {
+  const a = state.active;
+  a.timer = { total: sec, remaining: sec, startedAt: Date.now() };
+  if (state.timer) clearInterval(state.timer);
+  state.timer = setInterval(tickTimer, 250);
+}
+
+function tickTimer() {
+  const a = state.active;
+  if (!a || !a.timer) return;
+  const elapsed = (Date.now() - a.timer.startedAt) / 1000;
+  a.timer.remaining = a.timer.total - elapsed;
+
+  const card = document.querySelector('.timer-card');
+  if (!card) return;
+  const disp = card.querySelector('.t-display');
+  const prog = card.querySelector('.t-progress');
+  const isOver = a.timer.remaining < 0;
+
+  if (disp) {
+    disp.textContent = (isOver ? '+' : '') + formatTime(Math.abs(a.timer.remaining));
+    disp.classList.toggle('pulse', a.timer.remaining <= 10 && a.timer.remaining >= 0);
+  }
+  if (prog) {
+    prog.style.width = isOver ? '0%' : Math.max(0, (a.timer.remaining / a.timer.total) * 100) + '%';
+  }
+  card.classList.toggle('overtime', isOver);
+  const label = card.querySelector('.t-label');
+  if (label) label.textContent = isOver ? 'Rest Overtime' : 'Resting';
+
+  // Beep+vibrate at zero crossing
+  if (!a.timer.alerted && a.timer.remaining <= 0) {
+    a.timer.alerted = true;
+    try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
+    try { beep(); } catch (e) {}
+  }
+}
+
+function stopTimer() {
+  const a = state.active;
+  if (state.timer) { clearInterval(state.timer); state.timer = null; }
+  // Record how long the rest was on the last logged set
+  const arr = a.phase === 'warmup' ? a.warmupSets : a.workingSets;
+  const last = arr[arr.length - 1];
+  if (last && a.timer) {
+    last.restAfter = Math.max(0, a.timer.total - a.timer.remaining);
+  }
+  a.timer = null;
+}
+
+function beep() {
+  // Tiny web audio beep so we don't need an audio asset
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = 880; osc.type = 'sine';
+    gain.gain.value = 0.1;
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start();
+    setTimeout(() => { osc.stop(); ctx.close(); }, 220);
+  } catch (e) {}
+}
+
+function finishExercise() {
+  const a = state.active;
+  if (a.workingSets.length === 0) { toast('Log at least one working set', 'error'); return; }
+  const setsString = formatExerciseSets(a.warmupSets, a.workingSets);
+
+  state.session.entries.push({
+    exercise: a.name,
+    sets: setsString,
+    notes: a.notes || ''
+  });
+  state.session.lastExercise = a.name;
+
+  if (state.timer) { clearInterval(state.timer); state.timer = null; }
+  state.active = null;
+  state.view = 'session';
+  toast('Saved ' + a.name, 'success');
+  render();
+}
+
+// ============================================================
+// PICKER
+// ============================================================
+function openExercisePicker(forType, afterExercise) {
+  state.picker = {
+    open: true,
+    query: '',
+    forType: forType,
+    afterExercise: afterExercise,
+    onPick: (name) => {
+      state.picker.open = false;
+      openExerciseScreen(name);
+    }
+  };
+  render();
+}
+
+function renderPicker() {
+  const p = state.picker;
+  const exclude = state.session ? state.session.entries.map(e => e.exercise) : [];
+  let list = rankExercises(p.forType, exclude, p.afterExercise);
+  if (p.query) {
+    const q = p.query.toLowerCase();
+    list = list.filter(e => e.name.toLowerCase().includes(q));
+  }
+  const customAvail = p.query.trim().length > 0 &&
+    !list.some(e => e.name.toLowerCase() === p.query.trim().toLowerCase());
+
+  return `
+    <div class="modal-backdrop" id="pickerBackdrop">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-handle"></div>
+        <div class="modal-head">
+          <h3>Pick exercise · ${escapeHtml(p.forType || '')}</h3>
+          <button class="icon-btn" id="closePicker">×</button>
+        </div>
+        <div class="modal-body">
+          <input id="pickerSearch" type="text" placeholder="Search or add new…" value="${escapeHtml(p.query)}" autofocus />
+          <div style="height: 10px;"></div>
+
+          ${customAvail ? `
+            <button class="ex-item" data-custom="${escapeHtml(p.query.trim())}" style="border-color: var(--accent); margin-bottom: 6px;">
+              <span class="ex-name">+ Add "${escapeHtml(p.query.trim())}" as new exercise</span>
+            </button>
+          ` : ''}
+
+          ${list.length === 0
+            ? `<div class="empty-state">No matches. Type a name above to add it.</div>`
+            : list.slice(0, 60).map(e => {
+                const last = e.history && e.history[0];
+                const hasScore = e._score > 0;
+                const starred = e._nextScore > 0;
+                return `
+                  <button class="ex-item" data-pick="${escapeHtml(e.name)}">
+                    <div style="flex:1; min-width:0;">
+                      <div style="display:flex; align-items:center; gap: 6px;">
+                        ${starred ? '<span class="ex-badge" style="color: var(--accent); border-color: var(--accent);">Next</span>' : ''}
+                        ${hasScore && !starred ? `<span class="ex-badge">${p.forType}</span>` : ''}
+                        <span class="ex-name">${escapeHtml(e.name)}</span>
+                      </div>
+                    </div>
+                    ${last ? `<span class="ex-last">${escapeHtml(last.sets)}</span>` : ''}
+                  </button>
+                `;
+              }).join('')
+          }
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindPicker() {
+  const close = () => {
+    state.picker.open = false;
+    state.picker.query = '';
+    const el = document.getElementById('pickerBackdrop');
+    if (el) el.remove();
+  };
+  document.getElementById('closePicker').addEventListener('click', close);
+  document.getElementById('pickerBackdrop').addEventListener('click', (e) => {
+    if (e.target.id === 'pickerBackdrop') close();
+  });
+
+  const search = document.getElementById('pickerSearch');
+  search.addEventListener('input', e => {
+    state.picker.query = e.target.value;
+    refreshPicker();
+  });
+
+  document.querySelectorAll('[data-pick]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.pick;
+      const cb = state.picker.onPick;
+      close();
+      cb && cb(name);
+    });
+  });
+  document.querySelectorAll('[data-custom]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.custom;
+      const cb = state.picker.onPick;
+      close();
+      cb && cb(name);
+    });
+  });
+}
+
+function refreshPicker() {
+  const el = document.getElementById('pickerBackdrop');
+  if (el) el.remove();
+  document.body.insertAdjacentHTML('beforeend', renderPicker());
+  bindPicker();
+  // Keep focus on search
+  const s = document.getElementById('pickerSearch');
+  if (s) {
+    s.focus();
+    const v = s.value; s.value = ''; s.value = v; // put cursor at end
+  }
+}
+
+// ============================================================
+// SAVE SESSION
+// ============================================================
+async function saveSession() {
+  const s = state.session;
+  if (!s || s.entries.length === 0) { toast('Nothing to save', 'error'); return; }
+
+  const btn = document.getElementById('finishSessionBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Saving…'; }
+
+  try {
+    await api('addSession', {
+      date: s.date,
+      sessionType: s.type,
+      entries: s.entries
+    });
+    toast('Session saved to "Web app" tab', 'success');
+    state.session = null;
+    state.view = 'home';
+    await loadData();
+  } catch (err) {
+    toast('Save failed: ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Finish & Save Session'; }
+  }
+}
+
+// ============================================================
+// SETTINGS + UTILITIES
+// ============================================================
+function openSettings() {
+  if (confirm('Reset connection and re-enter the web app URL?')) {
+    localStorage.removeItem(LS_URL);
+    state.endpoint = '';
+    state.data = null;
+    if (state.timer) { clearInterval(state.timer); state.timer = null; }
+    state.session = null;
+    state.active = null;
+    state.view = 'setup';
+    render();
+  }
+}
+
+function toast(msg, kind) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind || '');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; }, 2400);
+  setTimeout(() => el.remove(), 2800);
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+if (state.endpoint) loadData(); else render();
+</script>
+</body>
+</html>
