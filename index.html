@@ -163,7 +163,11 @@
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-sm); padding: 14px 16px;
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    width: 100%; text-align: left; color: inherit; font: inherit;
+    cursor: pointer; transition: border-color .15s, transform .1s;
   }
+  .session-card:active { transform: scale(0.99); }
+  .session-card:hover { border-color: var(--border-bright); }
   .session-card .date { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 500; }
   .session-card .name { font-size: 14px; color: var(--text); margin-top: 2px; }
   .session-card .sets { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim); margin-top: 4px; }
@@ -171,6 +175,199 @@
     font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
     color: var(--text-faint); border: 1px solid var(--border);
     padding: 3px 7px; border-radius: 4px; white-space: nowrap;
+  }
+  /* Colored type badges */
+  .tab-badge.type-push { color: var(--orange); border-color: rgba(255,140,90,0.4); background: rgba(255,140,90,0.08); }
+  .tab-badge.type-pull { color: var(--blue); border-color: rgba(88,166,255,0.4); background: rgba(88,166,255,0.08); }
+  .tab-badge.type-legs { color: var(--accent); border-color: rgba(232,255,58,0.4); background: rgba(232,255,58,0.08); }
+  .tab-badge.type-cardio { color: var(--pink); border-color: rgba(255,90,158,0.4); background: rgba(255,90,158,0.08); }
+
+  /* ===== STAT ROW (home) ===== */
+  .stat-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    margin-bottom: 18px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 14px 16px;
+  }
+  .stat-label {
+    font-size: 11px; color: var(--text-faint);
+    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
+  }
+  .stat-value {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 32px; line-height: 1; margin-top: 6px;
+    color: var(--accent);
+  }
+  .stat-value .stat-unit {
+    font-size: 14px; color: var(--text-dim); margin-left: 4px;
+    font-family: 'JetBrains Mono', monospace; font-weight: 500;
+  }
+  .stat-sub {
+    font-size: 11px; color: var(--text-faint); margin-top: 4px;
+  }
+
+  /* ===== CALENDAR ===== */
+  .calendar {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 12px 10px;
+    margin-bottom: 18px;
+  }
+  .cal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 4px 10px;
+  }
+  .cal-title {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 14px; letter-spacing: 0.02em; text-transform: uppercase;
+  }
+  .cal-nav {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--surface-2); color: var(--text-dim);
+    display: grid; place-items: center;
+    font-size: 18px; line-height: 1;
+  }
+  .cal-nav:hover { color: var(--text); }
+  .cal-grid-head, .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+  }
+  .cal-grid-head {
+    padding-bottom: 4px;
+  }
+  .cal-grid-head > div {
+    text-align: center; font-size: 10px; color: var(--text-faint);
+    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
+  }
+  .cal-cell {
+    aspect-ratio: 1 / 1;
+    background: transparent; border: 1px solid transparent;
+    border-radius: 6px; padding: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; position: relative;
+    color: var(--text-dim); font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: default;
+  }
+  .cal-cell.empty { visibility: hidden; }
+  .cal-cell.today {
+    border-color: var(--border-bright);
+    color: var(--text);
+  }
+  .cal-cell.trained { cursor: pointer; color: var(--text); }
+  .cal-cell.trained:active { transform: scale(0.95); }
+  .cal-day { line-height: 1; }
+  .cal-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--text-dim);
+  }
+  .cal-cell.type-push .cal-dot { background: var(--orange); }
+  .cal-cell.type-pull .cal-dot { background: var(--blue); }
+  .cal-cell.type-legs .cal-dot { background: var(--accent); }
+  .cal-cell.type-cardio .cal-dot { background: var(--pink); }
+  .cal-cell.type-other .cal-dot { background: var(--text-dim); }
+
+  /* ===== PROGRESS TYPE TABS ===== */
+  .prog-tabs {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 4px;
+    margin-bottom: 14px;
+  }
+  .prog-tab {
+    padding: 10px 12px; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    transition: background .15s, color .15s;
+  }
+  .prog-tab.on { background: var(--surface-2); color: var(--text); }
+  .prog-tab.on.push { color: var(--orange); box-shadow: inset 0 -2px 0 var(--orange); }
+  .prog-tab.on.pull { color: var(--blue); box-shadow: inset 0 -2px 0 var(--blue); }
+  .prog-tab.on.legs { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+
+  /* ===== DAY DETAIL SHEET ===== */
+  .sheet-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+  }
+  .sheet-title {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 16px; letter-spacing: 0.01em; text-transform: uppercase;
+  }
+  .sheet-body {
+    padding: 14px 16px 20px;
+    max-height: 75vh; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .ds-session {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+  }
+  .ds-session-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .ds-count {
+    font-size: 11px; color: var(--text-faint);
+    text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+  }
+  .ds-exlist { display: flex; flex-direction: column; gap: 8px; }
+  .ds-exrow { padding: 8px 0; border-top: 1px solid var(--border); }
+  .ds-exrow:first-child { border-top: 0; padding-top: 0; }
+  .ds-exname { font-size: 14px; font-weight: 500; color: var(--text); }
+  .ds-exsets { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+  /* ===== RUN LOG ===== */
+  .run-type-list {
+    display: flex; flex-direction: column; gap: 10px;
+    margin-bottom: 18px;
+  }
+  .run-type-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px;
+    display: flex; align-items: center; gap: 14px;
+    text-align: left; transition: border-color .15s, transform .1s;
+    width: 100%;
+  }
+  .run-type-btn:active { transform: scale(0.99); }
+  .run-type-btn:hover { border-color: var(--pink); }
+  .run-type-btn .rt-label {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 18px; letter-spacing: 0.01em;
+    text-transform: uppercase; color: var(--pink);
+    flex: 0 0 auto;
+  }
+  .run-type-btn .rt-desc {
+    flex: 1; font-size: 12px; color: var(--text-faint);
+    text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+  }
+  .run-type-btn .rt-arrow {
+    color: var(--text-faint); font-size: 22px; line-height: 1;
+  }
+  .run-entry {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+    margin-bottom: 100px;
+  }
+  .run-entry textarea {
+    width: 100%; min-height: 180px; resize: vertical;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.5;
+  }
+  .run-hint {
+    margin-top: 10px; font-size: 11px; color: var(--text-faint);
+    line-height: 1.5;
+  }
+  .run-hint .mono {
+    font-family: 'JetBrains Mono', monospace; color: var(--text-dim);
+  }
+
+
+  .top-bar h1 {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 16px; letter-spacing: 0.04em;
+    text-transform: uppercase; margin: 0;
   }
 
   .empty-state { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 14px; }
@@ -207,28 +404,7 @@
     margin-top: 4px; font-weight: 600;
   }
 
-  /* Animated icons */
-  @keyframes pushMotion {
-    0%, 100% { transform: translateX(0); }
-    50% { transform: translateX(3px); }
-  }
-  @keyframes pullMotion {
-    0%, 100% { transform: translateX(0); }
-    50% { transform: translateX(-3px); }
-  }
-  @keyframes squatMotion {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(2px); }
-  }
-  @keyframes runMotion {
-    0% { transform: translateX(-2px); }
-    50% { transform: translateX(2px); }
-    100% { transform: translateX(-2px); }
-  }
-  .type-card.push .anim { animation: pushMotion 2s ease-in-out infinite; }
-  .type-card.pull .anim { animation: pullMotion 2s ease-in-out infinite; }
-  .type-card.legs .anim { animation: squatMotion 1.5s ease-in-out infinite; }
-  .type-card.cardio .anim { animation: runMotion 0.8s ease-in-out infinite; }
+  /* Type card icons — static, no animation */
 
   .type-card.push .type-icon { color: var(--orange); }
   .type-card.pull .type-icon { color: var(--blue); }
@@ -699,13 +875,22 @@ let state = {
   active: null,
 
   // Progress tab state
-  progress: { query: '', selectedExercise: null, metric: '1rm' }, // '1rm' | 'top' | 'volume'
+  progress: { query: '', selectedExercise: null, metric: '1rm', typeFilter: 'push' }, // '1rm' | 'top' | 'volume'; typeFilter: 'push' | 'pull' | 'legs'
 
   // Muscle chart state
   muscleView: 'front',
 
   // Picker state
   picker: { open: false, onPick: null, query: '', forType: null },
+
+  // Calendar state (which month is shown on home screen)
+  calendar: { year: new Date().getFullYear(), month: new Date().getMonth() },
+
+  // Day detail modal state (null = closed)
+  daySheet: null, // { dateKey: 'YYYY-MM-DD' } when open
+
+  // Run log state (null when not in run log flow)
+  runLog: null, // { phase: 'pickType'|'entry', runType, text, saving }
 
   // Timer singleton
   timer: null
@@ -978,26 +1163,170 @@ function parseSheetDate(dateStr) {
 }
 
 // Collect full history for an exercise with parsed sets
+// ============================================================
+// SHEET 8 FILTERING + SESSION GROUPING + STREAK + CALENDAR
+// ============================================================
+// The charts and home metrics should only use Sheet 8 (Mar+Apr 2026 onward).
+// Tab label in the sheet may be "Sheet 8", "Sheet8", or similar — we match
+// loosely so small naming changes don't break things.
+function isSheet8Tab(tab) {
+  if (!tab) return false;
+  const t = String(tab).toLowerCase().replace(/\s+/g, '');
+  return t === 'sheet8' || t.includes('sheet8');
+}
+
+// Get Sheet-8-only recent session rows (one row per exercise per day).
+function sheet8Rows() {
+  if (!state.data || !state.data.recentSessions) return [];
+  return state.data.recentSessions.filter(s => isSheet8Tab(s.tab));
+}
+
+// Group rows into sessions: one session = one (date + sessionType) pair.
+// Session type is derived from the exercises in that day — majority wins,
+// falls back to 'other' only if nothing classifies.
+// Returns array sorted newest-first: [{ dateLabel, dateObj, type, exercises: [...] }]
+function groupedSheet8Sessions() {
+  const rows = sheet8Rows();
+  const byKey = new Map();
+  for (const r of rows) {
+    const dateObj = parseSheetDate(r.date);
+    if (!dateObj) continue;
+    const dayType = classifyExercise(r.exercise);
+    // Preliminary key by date only; we'll merge same-day entries and pick
+    // a dominant type so "Push session" shows once even if a cardio warmup row exists.
+    const key = dateObj.toISOString().slice(0, 10);
+    if (!byKey.has(key)) {
+      byKey.set(key, { dateObj, dateLabel: r.date, typeCounts: {}, exercises: [] });
+    }
+    const bucket = byKey.get(key);
+    bucket.exercises.push({ name: r.exercise, sets: r.sets, type: dayType });
+    bucket.typeCounts[dayType] = (bucket.typeCounts[dayType] || 0) + 1;
+  }
+  const sessions = [];
+  for (const b of byKey.values()) {
+    // Pick dominant type, preferring push/pull/legs/cardio over 'other'
+    const ordered = ['push','pull','legs','cardio','other'];
+    let best = 'other', bestCount = -1;
+    for (const t of ordered) {
+      const c = b.typeCounts[t] || 0;
+      if (c > bestCount) { best = t; bestCount = c; }
+    }
+    sessions.push({
+      dateObj: b.dateObj,
+      dateLabel: b.dateLabel,
+      type: best,
+      exercises: b.exercises
+    });
+  }
+  sessions.sort((a, b) => b.dateObj - a.dateObj);
+  return sessions;
+}
+
+// Set of YYYY-MM-DD strings where at least one Sheet 8 session exists.
+// Value is the dominant type for that day, for calendar coloring.
+function trainedDayMap() {
+  const map = new Map();
+  for (const s of groupedSheet8Sessions()) {
+    const key = s.dateObj.toISOString().slice(0, 10);
+    map.set(key, s.type);
+  }
+  return map;
+}
+
+// Week streak: count of consecutive ISO weeks (Mon–Sun) ending with the
+// current week, where each week has >= TARGET sessions.
+// Current week counts even if incomplete (you might still hit target this week).
+// Previous weeks must have met target to continue the streak.
+const STREAK_TARGET = 3;
+function weekKey(d) {
+  // Monday-anchored week key YYYY-WW
+  const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = (dt.getUTCDay() + 6) % 7; // Mon=0 .. Sun=6
+  dt.setUTCDate(dt.getUTCDate() - dayNum + 3); // Thursday of this ISO week
+  const firstThursday = new Date(Date.UTC(dt.getUTCFullYear(), 0, 4));
+  const diff = (dt - firstThursday) / 86400000;
+  const week = 1 + Math.round((diff - (3 - ((firstThursday.getUTCDay() + 6) % 7))) / 7);
+  return dt.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
+}
+function computeWeekStreak() {
+  const sessions = groupedSheet8Sessions();
+  if (sessions.length === 0) return { streak: 0, thisWeekCount: 0, target: STREAK_TARGET };
+  const byWeek = new Map();
+  for (const s of sessions) {
+    const k = weekKey(s.dateObj);
+    byWeek.set(k, (byWeek.get(k) || 0) + 1);
+  }
+  // Walk backward week by week from this week
+  const now = new Date();
+  let cursor = new Date(now);
+  const thisWeekCount = byWeek.get(weekKey(cursor)) || 0;
+
+  let streak = 0;
+  // If current week already hit target, count it and keep going
+  // If current week hasn't hit target yet, don't count it but also don't break streak (week isn't over)
+  let started = false;
+  while (true) {
+    const k = weekKey(cursor);
+    const count = byWeek.get(k) || 0;
+    if (!started) {
+      // Current (latest) week being evaluated
+      if (count >= STREAK_TARGET) { streak++; started = true; }
+      else { started = true; /* skip current week, may still be in progress */ }
+    } else {
+      if (count >= STREAK_TARGET) streak++;
+      else break;
+    }
+    // Move to previous week
+    cursor.setDate(cursor.getDate() - 7);
+    // Safety: stop if we go before data start
+    if (cursor < sessions[sessions.length - 1].dateObj) {
+      // Evaluate this last week too before breaking
+      const lk = weekKey(cursor);
+      if ((byWeek.get(lk) || 0) >= STREAK_TARGET) streak++;
+      break;
+    }
+  }
+  return { streak, thisWeekCount, target: STREAK_TARGET };
+}
+
+// Date-based Sheet 8 check — Sheet 8 covers March 2026 onward.
+// Use this when the tab field isn't available (per-exercise history entries).
+const SHEET8_START = new Date(2026, 2, 1); // March 1, 2026
+function isSheet8Entry(h) {
+  // Prefer explicit tab field if present
+  if (h && h.tab != null) return isSheet8Tab(h.tab);
+  // Fall back to date
+  const d = parseSheetDate(h && h.date);
+  return d && d >= SHEET8_START;
+}
+
+// Display label for a session type on the home/calendar/day sheet.
+// Cardio sessions are now labeled "Run" since the flow is a run log.
+function typeDisplayName(type) {
+  if (type === 'cardio') return 'Run';
+  if (type === 'other') return 'Session';
+  return type[0].toUpperCase() + type.slice(1);
+}
+
 function fullHistoryFor(exerciseName) {
   if (!state.data || !state.data.recentSessions) return [];
-  // We need all-time history, not just recent. The bootstrap exposes .history per exercise
-  // but limited to 5. We'll look at the exercises array for all tabs.
-  // BUT bootstrap only returns 5 entries per exercise. We need to enhance the backend.
-  // For now, use whatever history we have. See note below.
   const ex = findExercise(exerciseName);
   if (!ex || !ex.history) return [];
-  return ex.history.map(h => {
-    const parsed = parseSetsString(h.sets);
-    const metrics = parsed.parseable ? sessionMetrics(parsed.sets) : null;
-    return {
-      ...h,
-      parsed: parsed.sets,
-      cardio: parsed.cardio,
-      metrics: metrics,
-      date: h.date,
-      dateObj: parseSheetDate(h.date),
-    };
-  }).filter(h => h.dateObj).sort((a, b) => a.dateObj - b.dateObj);
+  return ex.history
+    // Only count history entries from Sheet 8 (Mar 2026 onward)
+    .filter(h => isSheet8Entry(h))
+    .map(h => {
+      const parsed = parseSetsString(h.sets);
+      const metrics = parsed.parseable ? sessionMetrics(parsed.sets) : null;
+      return {
+        ...h,
+        parsed: parsed.sets,
+        cardio: parsed.cardio,
+        metrics: metrics,
+        date: h.date,
+        dateObj: parseSheetDate(h.date),
+      };
+    }).filter(h => h.dateObj).sort((a, b) => a.dateObj - b.dateObj);
 }
 
 function rankExercises(sessionType, excludeNames, afterExercise) {
@@ -1257,6 +1586,9 @@ function render() {
   } else if (state.view === 'exDetail') {
     root.innerHTML = renderTopBar('detail') + renderExDetail();
     bindExDetail();
+  } else if (state.view === 'runLog') {
+    root.innerHTML = renderTopBar('runLog') + renderRunLog();
+    bindRunLog();
   }
 
   if (showTabs) bindTabNav();
@@ -1264,6 +1596,66 @@ function render() {
     document.body.insertAdjacentHTML('beforeend', renderPicker());
     bindPicker();
   }
+  if (state.daySheet) {
+    const existingDs = document.getElementById('daySheetBackdrop');
+    if (existingDs) existingDs.remove();
+    document.body.insertAdjacentHTML('beforeend', renderDaySheet());
+    bindDaySheet();
+  }
+}
+
+function renderDaySheet() {
+  const key = state.daySheet.dateKey;
+  const sessions = groupedSheet8Sessions().filter(s => s.dateObj.toISOString().slice(0,10) === key);
+  const dt = new Date(key + 'T00:00:00');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const title = `${weekdays[dt.getDay()]} · ${months[dt.getMonth()]} ${dt.getDate()}`;
+
+  const body = sessions.length === 0
+    ? `<div class="empty-state">No training logged on this day.</div>`
+    : sessions.map(s => {
+        const typeName = typeDisplayName(s.type);
+        return `
+          <div class="ds-session">
+            <div class="ds-session-head">
+              <span class="tab-badge type-${s.type}">${typeName}</span>
+              <span class="ds-count">${s.exercises.length} exercise${s.exercises.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="ds-exlist">
+              ${s.exercises.map(e => `
+                <div class="ds-exrow">
+                  <div class="ds-exname">${escapeHtml(e.name)}</div>
+                  <div class="ds-exsets">${escapeHtml(e.sets)}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+  return `
+    <div class="modal-backdrop" id="daySheetBackdrop">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="sheet-head">
+          <div class="sheet-title">${escapeHtml(title)}</div>
+          <button class="icon-btn" id="daySheetClose" aria-label="Close">✕</button>
+        </div>
+        <div class="sheet-body">
+          ${body}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindDaySheet() {
+  const close = () => { state.daySheet = null; render(); };
+  document.getElementById('daySheetClose').addEventListener('click', close);
+  document.getElementById('daySheetBackdrop').addEventListener('click', (e) => {
+    if (e.target.id === 'daySheetBackdrop') close();
+  });
 }
 
 function renderTabNav() {
@@ -1291,7 +1683,7 @@ function bindTabNav() {
 }
 
 function renderTopBar(context) {
-  let left = `<h1>Training<span class="dot">.</span></h1>`;
+  let left = `<h1>TIN NGO TRAINING</h1>`;
   let mid = '';
   if (context === 'session') {
     left = `<button class="icon-btn" id="backBtn" aria-label="Back">←</button>`;
@@ -1302,6 +1694,9 @@ function renderTopBar(context) {
   } else if (context === 'detail') {
     left = `<button class="icon-btn" id="backBtn" aria-label="Back">←</button>`;
     mid = `<div class="title-mid">Progress</div>`;
+  } else if (context === 'runLog') {
+    left = `<button class="icon-btn" id="backBtn" aria-label="Back">←</button>`;
+    mid = `<div class="title-mid">Run Log</div>`;
   }
   return `
     <div class="top-bar">
@@ -1350,14 +1745,35 @@ function bindSetup() {
 // ============================================================
 function renderHome() {
   const d = state.data || { recentSessions: [], exercises: [] };
-  const recent = d.recentSessions.slice(0, 6);
+  const sessions = groupedSheet8Sessions();
+  const recent = sessions.slice(0, 6);
+  const streakInfo = computeWeekStreak();
+  const trainedDays = trainedDayMap();
 
   return `
     <div class="hero">
       <div class="kicker">Today · ${escapeHtml(todayFormatted())}</div>
-      <div class="count mono">${d.recentSessions.length}</div>
-      <div class="sub">entries logged · ${d.exercises.length} exercises in library</div>
+      <div class="count mono">${sessions.length}</div>
+      <div class="sub">sessions logged · Mar 2026 onward</div>
     </div>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-label">Week streak</div>
+        <div class="stat-value mono">${streakInfo.streak}<span class="stat-unit">wk</span></div>
+        <div class="stat-sub">${streakInfo.thisWeekCount}/${streakInfo.target} this week</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">This month</div>
+        <div class="stat-value mono">${sessions.filter(s => {
+          const now = new Date();
+          return s.dateObj.getMonth() === now.getMonth() && s.dateObj.getFullYear() === now.getFullYear();
+        }).length}</div>
+        <div class="stat-sub">sessions</div>
+      </div>
+    </div>
+
+    ${renderCalendar(trainedDays)}
 
     <div class="section-title">
       <h3>Start Session</h3>
@@ -1367,7 +1783,7 @@ function renderHome() {
       ${renderTypeCard('push', 'Push', 'chest · shoulders · triceps', iconPush())}
       ${renderTypeCard('pull', 'Pull', 'back · biceps · rear delts', iconPull())}
       ${renderTypeCard('legs', 'Legs', 'quads · hams · glutes · calves', iconLegs())}
-      ${renderTypeCard('cardio', 'Cardio', 'run · bike · conditioning', iconCardio())}
+      ${renderTypeCard('cardio', 'Run Log', 'interval · long · easy', iconCardio())}
     </div>
 
     <div class="section-title">
@@ -1377,17 +1793,60 @@ function renderHome() {
     <div class="session-list">
       ${recent.length === 0
         ? `<div class="empty-state">No sessions yet. Pick a type above.</div>`
-        : recent.map(s => `
-          <div class="session-card">
-            <div style="flex:1; min-width: 0;">
-              <div class="date">${escapeHtml(s.date || '—')}</div>
-              <div class="name">${escapeHtml(s.exercise)}</div>
-              <div class="sets">${escapeHtml(s.sets)}</div>
-            </div>
-            <div class="tab-badge">${escapeHtml(s.tab)}</div>
-          </div>
-        `).join('')
+        : recent.map(s => {
+            const typeName = typeDisplayName(s.type);
+            return `
+              <button class="session-card" data-session-date="${s.dateObj.toISOString().slice(0,10)}">
+                <div style="flex:1; min-width: 0;">
+                  <div class="date">${escapeHtml(s.dateLabel)}</div>
+                  <div class="name">${escapeHtml(typeName)} · ${s.exercises.length} exercise${s.exercises.length !== 1 ? 's' : ''}</div>
+                </div>
+                <div class="tab-badge type-${s.type}">${escapeHtml(typeName)}</div>
+              </button>
+            `;
+          }).join('')
       }
+    </div>
+  `;
+}
+
+// Month calendar with dots on trained days.
+function renderCalendar(trainedDays) {
+  const cal = state.calendar || { year: new Date().getFullYear(), month: new Date().getMonth() };
+  const y = cal.year, m = cal.month;
+  const first = new Date(y, m, 1);
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const startCol = (first.getDay() + 6) % 7; // Mon=0 .. Sun=6
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const today = new Date();
+  const todayKey = today.toISOString().slice(0,10);
+
+  let cells = '';
+  // Empty leading cells
+  for (let i = 0; i < startCol; i++) cells += `<div class="cal-cell empty"></div>`;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dt = new Date(y, m, day);
+    const key = dt.toISOString().slice(0,10);
+    const type = trainedDays.get(key);
+    const isToday = key === todayKey;
+    const classes = ['cal-cell'];
+    if (type) classes.push('trained', 'type-' + type);
+    if (isToday) classes.push('today');
+    const selAttr = type ? `data-session-date="${key}"` : '';
+    cells += `<button class="${classes.join(' ')}" ${selAttr}><span class="cal-day">${day}</span>${type ? '<span class="cal-dot"></span>' : ''}</button>`;
+  }
+
+  return `
+    <div class="calendar">
+      <div class="cal-head">
+        <button class="cal-nav" id="calPrev" aria-label="Previous month">‹</button>
+        <div class="cal-title">${months[m]} ${y}</div>
+        <button class="cal-nav" id="calNext" aria-label="Next month">›</button>
+      </div>
+      <div class="cal-grid-head">
+        <div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div>
+      </div>
+      <div class="cal-grid">${cells}</div>
     </div>
   `;
 }
@@ -1409,9 +1868,36 @@ function bindHome() {
   document.querySelectorAll('[data-type]').forEach(btn => {
     btn.addEventListener('click', () => startSession(btn.dataset.type));
   });
+  // Calendar navigation
+  const prev = document.getElementById('calPrev');
+  const next = document.getElementById('calNext');
+  if (prev) prev.addEventListener('click', () => {
+    const c = state.calendar;
+    if (c.month === 0) { c.month = 11; c.year--; } else { c.month--; }
+    render();
+  });
+  if (next) next.addEventListener('click', () => {
+    const c = state.calendar;
+    if (c.month === 11) { c.month = 0; c.year++; } else { c.month++; }
+    render();
+  });
+  // Tap a trained calendar day or a recent-session card to see the day's detail
+  document.querySelectorAll('[data-session-date]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.daySheet = { dateKey: btn.dataset.sessionDate };
+      render();
+    });
+  });
 }
 
 function startSession(type) {
+  if (type === 'cardio') {
+    // Run log: pick interval/long/easy, then type freely
+    state.runLog = { phase: 'pickType', runType: null, text: '', saving: false };
+    state.view = 'runLog';
+    render();
+    return;
+  }
   const typeName = { push: 'Push', pull: 'Pull', legs: 'Legs', cardio: 'Cardio' }[type];
   state.session = {
     type: typeName,
@@ -1423,6 +1909,127 @@ function startSession(type) {
   state.view = 'session';
   render();
   openExercisePicker(type, null);
+}
+
+// ============================================================
+// RUN LOG
+// ============================================================
+const RUN_TYPES = [
+  { id: 'interval', label: 'Interval', desc: 'speed work · repeats' },
+  { id: 'long',     label: 'Long Run', desc: 'endurance · distance' },
+  { id: 'easy',     label: 'Easy Run', desc: 'recovery · base' },
+];
+
+function renderRunLog() {
+  const r = state.runLog || { phase: 'pickType' };
+
+  if (r.phase === 'pickType') {
+    return `
+      <div class="hero">
+        <div class="kicker">Run Log · ${escapeHtml(todayFormatted())}</div>
+        <div class="count mono">🏃</div>
+        <div class="sub">pick a run type</div>
+      </div>
+      <div class="run-type-list">
+        ${RUN_TYPES.map(t => `
+          <button class="run-type-btn" data-run-type="${t.id}">
+            <div class="rt-label">${t.label}</div>
+            <div class="rt-desc">${escapeHtml(t.desc)}</div>
+            <div class="rt-arrow">›</div>
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // phase === 'entry'
+  const rt = RUN_TYPES.find(t => t.id === r.runType);
+  const label = rt ? rt.label : 'Run';
+  return `
+    <div class="hero">
+      <div class="kicker">${escapeHtml(label)} · ${escapeHtml(todayFormatted())}</div>
+    </div>
+    <div class="run-entry">
+      <label class="label" for="runText">How did it go?</label>
+      <textarea id="runText" placeholder="e.g. 5km · 28:30 · pace 5:42&#10;or: 6x800m @ 3:15, 90s rest&#10;or: 10km easy, felt good" rows="8">${escapeHtml(r.text || '')}</textarea>
+      <div class="run-hint">Type freely — will save as <span class="mono">"${escapeHtml(label)} · your text"</span></div>
+    </div>
+    <div class="fab no-tabs">
+      <button class="btn btn-primary btn-block btn-lg" id="saveRunBtn" ${r.saving ? 'disabled' : ''}>
+        ${r.saving ? '<div class="spinner"></div> Saving…' : 'Save Run'}
+      </button>
+    </div>
+  `;
+}
+
+function bindRunLog() {
+  const backBtn = document.getElementById('backBtn');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      const r = state.runLog;
+      if (r && r.phase === 'entry') {
+        // back to type picker
+        r.phase = 'pickType';
+        r.runType = null;
+        render();
+      } else {
+        state.runLog = null;
+        state.view = 'home';
+        render();
+      }
+    });
+  }
+  const settingsBtn = document.getElementById('settingsBtn');
+  if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+
+  document.querySelectorAll('[data-run-type]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.runLog.runType = btn.dataset.runType;
+      state.runLog.phase = 'entry';
+      render();
+      // Autofocus the textarea
+      setTimeout(() => {
+        const ta = document.getElementById('runText');
+        if (ta) ta.focus();
+      }, 50);
+    });
+  });
+
+  const ta = document.getElementById('runText');
+  if (ta) {
+    ta.addEventListener('input', e => { state.runLog.text = e.target.value; });
+  }
+
+  const saveBtn = document.getElementById('saveRunBtn');
+  if (saveBtn) saveBtn.addEventListener('click', saveRunLog);
+}
+
+async function saveRunLog() {
+  const r = state.runLog;
+  if (!r || !r.runType) { toast('Pick a run type first', 'error'); return; }
+  const text = (r.text || '').trim();
+  if (!text) { toast('Type your run details first', 'error'); return; }
+
+  const rt = RUN_TYPES.find(t => t.id === r.runType);
+  const label = rt ? rt.label : 'Run';
+  const setsString = `${label} · ${text}`;
+
+  r.saving = true; render();
+  try {
+    await api('addSession', {
+      date: todayFormatted(),
+      sessionType: 'Cardio',
+      entries: [{ exercise: 'Run', sets: setsString, notes: '' }]
+    });
+    toast('Run saved', 'success');
+    state.runLog = null;
+    state.view = 'home';
+    await loadData();
+  } catch (err) {
+    toast('Save failed: ' + err.message, 'error');
+    r.saving = false;
+    render();
+  }
 }
 
 // ============================================================
@@ -2001,27 +2608,44 @@ async function saveSession() {
 // ============================================================
 function renderProgress() {
   const d = state.data || { exercises: [] };
+  const type = state.progress.typeFilter || 'push';
   const q = (state.progress.query || '').toLowerCase();
+
+  // Only show exercises that have at least one Sheet 8 session AND classify to the selected type
   const list = d.exercises
-    .filter(e => !q || e.name.toLowerCase().includes(q))
     .map(e => {
-      const hist = fullHistoryFor(e.name);
-      return { ex: e, hist: hist, sessionCount: hist.length };
+      const hist = fullHistoryFor(e.name);  // already Sheet 8 filtered
+      return { ex: e, hist, sessionCount: hist.length, exType: classifyExercise(e.name) };
     })
+    .filter(item => item.sessionCount > 0 && item.exType === type)
+    .filter(item => !q || item.ex.name.toLowerCase().includes(q))
     .sort((a, b) => b.sessionCount - a.sessionCount);
+
+  const totalSheet8Exercises = d.exercises.filter(e => {
+    const h = fullHistoryFor(e.name);
+    return h.length > 0;
+  }).length;
+
+  const typeLabel = { push: 'Push', pull: 'Pull', legs: 'Legs' }[type] || 'Push';
 
   return `
     <div class="hero">
       <div class="kicker">Progress</div>
-      <div class="count mono">${d.exercises.length}</div>
-      <div class="sub">exercises tracked · tap one to see progress</div>
+      <div class="count mono">${totalSheet8Exercises}</div>
+      <div class="sub">exercises tracked since Mar 2026</div>
+    </div>
+
+    <div class="prog-tabs">
+      <button class="prog-tab ${type === 'push' ? 'on push' : ''}" data-prog-type="push">Push</button>
+      <button class="prog-tab ${type === 'pull' ? 'on pull' : ''}" data-prog-type="pull">Pull</button>
+      <button class="prog-tab ${type === 'legs' ? 'on legs' : ''}" data-prog-type="legs">Legs</button>
     </div>
 
     <div class="ex-browse">
-      <input id="progSearch" type="text" placeholder="Search exercises…" value="${escapeHtml(state.progress.query)}" />
+      <input id="progSearch" type="text" placeholder="Search ${escapeHtml(typeLabel.toLowerCase())} exercises…" value="${escapeHtml(state.progress.query)}" />
       <div class="eb-list">
         ${list.length === 0
-          ? `<div class="empty-state">No matches.</div>`
+          ? `<div class="empty-state">No ${escapeHtml(typeLabel.toLowerCase())} exercises logged yet.</div>`
           : list.map(({ex, hist, sessionCount}) => {
               const latest = hist[hist.length - 1];
               const latestMetric = latest && latest.metrics ? latest.metrics.est1RM + 'kg est.' : (latest && latest.cardio ? 'cardio' : '—');
@@ -2043,14 +2667,17 @@ function renderProgress() {
 
 function bindProgress() {
   document.getElementById('settingsBtn').addEventListener('click', openSettings);
+  document.querySelectorAll('[data-prog-type]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.progress.typeFilter = btn.dataset.progType;
+      render();
+    });
+  });
   const search = document.getElementById('progSearch');
   if (search) {
     search.addEventListener('input', e => {
       state.progress.query = e.target.value;
-      // Light refresh - just update list
-      const parent = search.parentElement;
       render();
-      // Restore focus
       const s2 = document.getElementById('progSearch');
       if (s2) { s2.focus(); const v = s2.value; s2.value = ''; s2.value = v; }
     });
