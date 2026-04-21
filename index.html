@@ -440,9 +440,10 @@
   .muscle-svg {
     width: 100%; max-width: 220px; height: auto;
   }
-  .muscle-svg .body { fill: #2e2e2e; stroke: #1a1a1a; stroke-width: 0.5; }
-  .muscle-svg .m { fill: #3a3a3a; stroke: #1a1a1a; stroke-width: 0.5; transition: fill 0.3s; }
+  .muscle-svg .body { fill: #2e2e2e; stroke: #1a1a1a; stroke-width: 0.6; stroke-linejoin: round; }
+  .muscle-svg .m { fill: #3a3a3a; stroke: #1a1a1a; stroke-width: 0.5; stroke-linejoin: round; transition: fill 0.3s; }
   .muscle-svg .m.hit { fill: var(--muscle); }
+  .muscle-svg .sep { fill: none; stroke: #141414; stroke-width: 0.6; stroke-linecap: round; pointer-events: none; }
   .muscle-list {
     display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
     justify-content: center;
@@ -555,14 +556,21 @@
     flex-shrink: 0;
   }
   .set-log-row.warmup .sl-num { color: var(--warn); border-color: var(--warn); }
-  .set-log-row .sl-body { flex: 1; font-size: 14px; }
+  .set-log-row .sl-body { flex: 1; font-size: 14px; min-width: 0; }
+  .set-log-row .sl-line { display: flex; align-items: baseline; flex-wrap: wrap; }
   .set-log-row .sl-w { color: var(--text); font-weight: 500; }
   .set-log-row .sl-x { color: var(--text-faint); padding: 0 4px; }
   .set-log-row .sl-r { color: var(--accent); font-weight: 500; }
   .set-log-row .sl-rest {
     font-size: 11px; color: var(--text-faint); font-family: 'Inter', sans-serif;
   }
-  .set-log-row .sl-rm { color: var(--text-faint); padding: 4px 8px; }
+  .set-log-row .sl-note {
+    font-size: 12px; color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+    margin-top: 4px; line-height: 1.35;
+    word-break: break-word;
+  }
+  .set-log-row .sl-rm { color: var(--text-faint); padding: 4px 8px; align-self: flex-start; }
   .set-log-row .sl-rm:active { color: var(--danger); }
 
   /* ===== SET INPUT ===== */
@@ -806,6 +814,28 @@
     box-shadow: 0 10px 30px rgba(232,255,58,0.25);
   }
 
+  /* Inline finish button (not fixed) — used at the bottom of the exercise screen */
+  .finish-btn {
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    min-height: 64px;
+    padding: 16px 20px;
+    font-family: 'Archivo Black', sans-serif;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    box-shadow: 0 10px 30px rgba(232,255,58,0.25);
+    margin-top: 20px;
+  }
+  .finish-btn .finish-title { font-size: 16px; line-height: 1; }
+  .finish-btn .finish-sub {
+    font-size: 11px; line-height: 1;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    opacity: 0.7;
+  }
+  .finish-btn:disabled .finish-sub { opacity: 0.5; }
+
   /* ===== SETUP ===== */
   .setup-card {
     background: var(--surface); border: 1px solid var(--border);
@@ -1044,22 +1074,24 @@ function fmtSet(weight, reps) {
 }
 
 function formatExerciseSets(warmupSets, workingSets) {
+  const annotate = (base, note) => note ? base + ' (' + note + ')' : base;
   const warmParts = (warmupSets || []).filter(s => s.reps && s.reps > 0)
-    .map(s => 'W:' + fmtSet(s.weight, s.reps));
+    .map(s => annotate('W:' + fmtSet(s.weight, s.reps), s.note));
   const clean = (workingSets || []).filter(s => s.reps && s.reps > 0);
   const groups = [];
   for (const s of clean) {
     const last = groups[groups.length - 1];
-    if (last && last.weight === s.weight && last.reps === s.reps) {
+    // Only merge with previous group if weight/reps match AND neither side has a note.
+    if (last && last.weight === s.weight && last.reps === s.reps && !last.note && !s.note) {
       last.count += 1;
     } else {
-      groups.push({ weight: s.weight, reps: s.reps, count: 1 });
+      groups.push({ weight: s.weight, reps: s.reps, count: 1, note: s.note || '' });
     }
   }
   const workParts = groups.map(g => {
     let base = fmtSet(g.weight, g.reps);
     if (g.count > 1) base += 'x' + g.count;
-    return base;
+    return annotate(base, g.note);
   });
   return warmParts.concat(workParts).join(', ');
 }
@@ -1166,13 +1198,17 @@ function parseSheetDate(dateStr) {
 // ============================================================
 // SHEET 8 FILTERING + SESSION GROUPING + STREAK + CALENDAR
 // ============================================================
-// The charts and home metrics should only use Sheet 8 (Mar+Apr 2026 onward).
-// Tab label in the sheet may be "Sheet 8", "Sheet8", or similar — we match
-// loosely so small naming changes don't break things.
+// The charts and home metrics should only use the current training block's
+// tab — currently "March - April 2026". Historical tabs (Sheet 8, etc.) are
+// ignored. Match loosely so small renaming (e.g. "March-April 2026",
+// "Mar - Apr 2026") keeps working.
 function isSheet8Tab(tab) {
   if (!tab) return false;
-  const t = String(tab).toLowerCase().replace(/\s+/g, '');
-  return t === 'sheet8' || t.includes('sheet8');
+  const t = String(tab).toLowerCase();
+  const hasMarch = /\bmar(ch)?\b/.test(t);
+  const hasApril = /\bapr(il)?\b/.test(t);
+  const has2026 = t.includes('2026');
+  return hasMarch && hasApril && has2026;
 }
 
 // Get Sheet-8-only recent session rows (one row per exercise per day).
@@ -1403,103 +1439,251 @@ function iconCardio() {
 // ============================================================
 function muscleSVG(activeMuscles, view) {
   const active = new Set(activeMuscles || []);
-  const isHit = (id) => active.has(id) ? 'hit' : '';
+  const hit = (id) => active.has(id) ? 'hit' : '';
 
   if (view === 'front') {
-    return `<svg class="muscle-svg" viewBox="0 0 140 280" xmlns="http://www.w3.org/2000/svg">
-      <!-- body silhouette -->
-      <path class="body" d="M70,10 C60,10 54,18 54,28 C54,34 56,40 60,44 L58,50
-        L48,54 L42,58 L36,66 L30,80 L26,100 L24,120 L24,140
-        L28,160 L34,180 L38,200 L40,220 L42,240 L44,260 L48,270
-        L56,270 L58,260 L60,240 L62,220 L62,200 L64,180 L65,160
-        L67,140 L68,130 L69,130 L70,130
-        L71,130 L72,130 L73,140 L75,160 L76,180 L78,200 L78,220
-        L80,240 L82,260 L84,270 L92,270 L96,260 L98,240 L100,220
-        L102,200 L106,180 L112,160 L116,140 L116,120 L114,100
-        L110,80 L104,66 L98,58 L92,54 L82,50 L80,44
-        C84,40 86,34 86,28 C86,18 80,10 70,10 Z" />
+    return `
+<svg class="muscle-svg" viewBox="0 0 200 440" xmlns="http://www.w3.org/2000/svg">
+  <!-- head -->
+  <circle class="body" cx="100" cy="34" r="24"/>
+  <!-- neck + body silhouette (slim / athletic) -->
+  <path class="body" d="
+    M90,56 L110,56
+    C112,62 113,67 117,70
+    L126,74
+    C138,80 148,90 154,104
+    L160,126
+    C166,148 168,170 164,190
+    L158,208 L160,226
+    L156,246
+    L150,276 L144,310 L140,344 L138,374 L140,406 L144,424
+    C144,430 141,434 136,434
+    L122,434 C118,434 115,431 114,425
+    L110,392 L107,358 L103,322 L100,286
+    L97,322 L93,358 L90,392 L86,425
+    C85,431 82,434 78,434
+    L64,434 C59,434 56,430 56,424
+    L60,406 L62,374 L60,344 L56,310 L50,276 L44,246
+    L40,226 L42,208
+    C36,190 34,170 40,148
+    L46,126
+    C52,104 62,90 74,80
+    L83,74 C87,71 88,66 90,60 Z"/>
 
-      <!-- chest (pecs) -->
-      <path class="m ${isHit('chest')}" d="M56,56 C60,62 66,66 70,66 C74,66 80,62 84,56 C84,64 82,72 78,76 C74,78 70,78 70,78 C70,78 66,78 62,76 C58,72 56,64 56,56 Z" />
+  <!-- upper traps (just visible above collar) -->
+  <path class="m ${hit('traps')}" d="M92,60 L100,66 L108,60 L112,74 L100,80 L88,74 Z"/>
 
-      <!-- delts (shoulders) -->
-      <path class="m ${isHit('delts')}" d="M48,54 L42,58 L38,64 L40,74 L46,70 L52,62 L54,56 Z" />
-      <path class="m ${isHit('delts')}" d="M92,54 L98,58 L102,64 L100,74 L94,70 L88,62 L86,56 Z" />
+  <!-- delts -->
+  <path class="m ${hit('delts')}" d="
+    M78,76 C72,80 68,90 66,104
+    C66,114 70,122 76,124
+    C82,122 84,112 84,100
+    C84,88 82,76 78,76 Z"/>
+  <path class="m ${hit('delts')}" d="
+    M122,76 C128,80 132,90 134,104
+    C134,114 130,122 124,124
+    C118,122 116,112 116,100
+    C116,88 118,76 122,76 Z"/>
 
-      <!-- biceps -->
-      <path class="m ${isHit('biceps')}" d="M40,74 L36,88 L38,100 L44,100 L48,86 L46,74 Z" />
-      <path class="m ${isHit('biceps')}" d="M100,74 L104,88 L102,100 L96,100 L92,86 L94,74 Z" />
+  <!-- chest / pecs -->
+  <path class="m ${hit('chest')}" d="
+    M82,82 C84,88 88,96 94,102
+    C98,104 100,104 100,104
+    L100,138 C90,138 80,134 76,126
+    C70,116 70,102 74,94
+    C76,88 80,84 82,82 Z"/>
+  <path class="m ${hit('chest')}" d="
+    M118,82 C116,88 112,96 106,102
+    C102,104 100,104 100,104
+    L100,138 C110,138 120,134 124,126
+    C130,116 130,102 126,94
+    C124,88 120,84 118,82 Z"/>
 
-      <!-- forearms -->
-      <path class="m ${isHit('forearms')}" d="M38,100 L34,120 L34,138 L40,138 L44,118 L44,100 Z" />
-      <path class="m ${isHit('forearms')}" d="M102,100 L106,120 L106,138 L100,138 L96,118 L96,100 Z" />
+  <!-- biceps -->
+  <path class="m ${hit('biceps')}" d="
+    M64,126 C58,134 54,148 56,162
+    C58,172 62,178 68,178
+    C72,172 74,158 74,144
+    C72,134 70,128 64,126 Z"/>
+  <path class="m ${hit('biceps')}" d="
+    M136,126 C142,134 146,148 144,162
+    C142,172 138,178 132,178
+    C128,172 126,158 126,144
+    C128,134 130,128 136,126 Z"/>
 
-      <!-- abs -->
-      <path class="m ${isHit('abs')}" d="M60,80 L80,80 L82,94 L80,108 L78,120 L70,126 L62,120 L60,108 L58,94 Z" />
+  <!-- forearms -->
+  <path class="m ${hit('forearms')}" d="
+    M54,164 C50,180 46,200 48,220
+    C50,226 54,228 58,222
+    C62,212 66,196 68,182
+    C68,174 66,168 62,166 Z"/>
+  <path class="m ${hit('forearms')}" d="
+    M146,164 C150,180 154,200 152,220
+    C150,226 146,228 142,222
+    C138,212 134,196 132,182
+    C132,174 134,168 138,166 Z"/>
 
-      <!-- quads -->
-      <path class="m ${isHit('quads')}" d="M54,140 L46,160 L42,185 L44,205 L52,205 L56,185 L60,160 L64,140 Z" />
-      <path class="m ${isHit('quads')}" d="M86,140 L94,160 L98,185 L96,205 L88,205 L84,185 L80,160 L76,140 Z" />
+  <!-- abs -->
+  <path class="m ${hit('abs')}" d="
+    M84,140 L116,140
+    C118,158 118,178 116,200
+    L112,216 C106,222 100,224 100,224
+    C100,224 94,222 88,216 L84,200
+    C82,178 82,158 84,140 Z"/>
 
-      <!-- calves (front / tibialis area just shows on sides) -->
-      <path class="m ${isHit('calves')}" d="M48,215 L44,240 L46,260 L52,260 L54,240 L54,215 Z" />
-      <path class="m ${isHit('calves')}" d="M92,215 L96,240 L94,260 L88,260 L86,240 L86,215 Z" />
+  <!-- ab separators (visual only, not hit) -->
+  <path class="sep" d="M100,142 L100,220"/>
+  <path class="sep" d="M86,160 L114,160"/>
+  <path class="sep" d="M85,180 L115,180"/>
+  <path class="sep" d="M86,200 L114,200"/>
 
-      <!-- head circle -->
-      <circle class="body" cx="70" cy="28" r="14" fill="#2e2e2e" stroke="#1a1a1a" stroke-width="0.5"/>
-    </svg>`;
-  } else {
-    return `<svg class="muscle-svg" viewBox="0 0 140 280" xmlns="http://www.w3.org/2000/svg">
-      <!-- body silhouette (back) -->
-      <path class="body" d="M70,10 C60,10 54,18 54,28 C54,34 56,40 60,44 L58,50
-        L48,54 L42,58 L36,66 L30,80 L26,100 L24,120 L24,140
-        L28,160 L34,180 L38,200 L40,220 L42,240 L44,260 L48,270
-        L56,270 L58,260 L60,240 L62,220 L62,200 L64,180 L65,160
-        L67,140 L68,130 L69,130 L70,130
-        L71,130 L72,130 L73,140 L75,160 L76,180 L78,200 L78,220
-        L80,240 L82,260 L84,270 L92,270 L96,260 L98,240 L100,220
-        L102,200 L106,180 L112,160 L116,140 L116,120 L114,100
-        L110,80 L104,66 L98,58 L92,54 L82,50 L80,44
-        C84,40 86,34 86,28 C86,18 80,10 70,10 Z" />
+  <!-- quads -->
+  <path class="m ${hit('quads')}" d="
+    M74,236 C70,254 66,280 66,308
+    C66,328 70,342 76,352
+    C84,350 90,342 92,330
+    C96,310 98,284 98,258
+    L98,236 Z"/>
+  <path class="m ${hit('quads')}" d="
+    M126,236 C130,254 134,280 134,308
+    C134,328 130,342 124,352
+    C116,350 110,342 108,330
+    C104,310 102,284 102,258
+    L102,236 Z"/>
 
-      <!-- traps -->
-      <path class="m ${isHit('traps')}" d="M58,48 L70,56 L82,48 L84,58 L78,66 L70,68 L62,66 L56,58 Z" />
-
-      <!-- rear delts -->
-      <path class="m ${isHit('rearDelts')}" d="M48,54 L42,58 L38,66 L44,68 L52,64 L54,58 Z" />
-      <path class="m ${isHit('rearDelts')}" d="M92,54 L98,58 L102,66 L96,68 L88,64 L86,58 Z" />
-
-      <!-- lats -->
-      <path class="m ${isHit('lats')}" d="M56,68 L52,82 L50,98 L52,112 L58,118 L64,114 L66,100 L64,84 L60,72 Z" />
-      <path class="m ${isHit('lats')}" d="M84,68 L88,82 L90,98 L88,112 L82,118 L76,114 L74,100 L76,84 L80,72 Z" />
-
-      <!-- triceps -->
-      <path class="m ${isHit('triceps')}" d="M40,74 L36,90 L40,102 L46,100 L48,88 L46,74 Z" />
-      <path class="m ${isHit('triceps')}" d="M100,74 L104,90 L100,102 L94,100 L92,88 L94,74 Z" />
-
-      <!-- forearms (back view too) -->
-      <path class="m ${isHit('forearms')}" d="M38,102 L34,120 L34,138 L40,138 L44,118 L44,102 Z" />
-      <path class="m ${isHit('forearms')}" d="M102,102 L106,120 L106,138 L100,138 L96,118 L96,102 Z" />
-
-      <!-- lower back -->
-      <path class="m ${isHit('lowerBack')}" d="M62,116 L78,116 L80,130 L70,138 L60,130 Z" />
-
-      <!-- glutes -->
-      <path class="m ${isHit('glutes')}" d="M54,138 L70,140 L70,164 L58,164 L52,154 Z" />
-      <path class="m ${isHit('glutes')}" d="M86,138 L70,140 L70,164 L82,164 L88,154 Z" />
-
-      <!-- hamstrings -->
-      <path class="m ${isHit('hams')}" d="M54,168 L46,188 L44,210 L52,210 L58,190 L60,170 Z" />
-      <path class="m ${isHit('hams')}" d="M86,168 L94,188 L96,210 L88,210 L82,190 L80,170 Z" />
-
-      <!-- calves -->
-      <path class="m ${isHit('calves')}" d="M50,215 L46,240 L50,260 L56,260 L56,240 L54,215 Z" />
-      <path class="m ${isHit('calves')}" d="M90,215 L94,240 L90,260 L84,260 L84,240 L86,215 Z" />
-
-      <!-- head -->
-      <circle class="body" cx="70" cy="28" r="14" fill="#2e2e2e" stroke="#1a1a1a" stroke-width="0.5"/>
-    </svg>`;
+  <!-- tibialis / front calves -->
+  <path class="m ${hit('calves')}" d="
+    M76,360 C72,378 70,398 72,418
+    L82,418 C84,398 86,380 86,364 Z"/>
+  <path class="m ${hit('calves')}" d="
+    M124,360 C128,378 130,398 128,418
+    L118,418 C116,398 114,380 114,364 Z"/>
+</svg>`;
   }
+
+  // back view
+  return `
+<svg class="muscle-svg" viewBox="0 0 200 440" xmlns="http://www.w3.org/2000/svg">
+  <!-- head -->
+  <circle class="body" cx="100" cy="34" r="24"/>
+  <!-- neck + body silhouette (same outline) -->
+  <path class="body" d="
+    M90,56 L110,56
+    C112,62 113,67 117,70
+    L126,74
+    C138,80 148,90 154,104
+    L160,126
+    C166,148 168,170 164,190
+    L158,208 L160,226
+    L156,246
+    L150,276 L144,310 L140,344 L138,374 L140,406 L144,424
+    C144,430 141,434 136,434
+    L122,434 C118,434 115,431 114,425
+    L110,392 L107,358 L103,322 L100,286
+    L97,322 L93,358 L90,392 L86,425
+    C85,431 82,434 78,434
+    L64,434 C59,434 56,430 56,424
+    L60,406 L62,374 L60,344 L56,310 L50,276 L44,246
+    L40,226 L42,208
+    C36,190 34,170 40,148
+    L46,126
+    C52,104 62,90 74,80
+    L83,74 C87,71 88,66 90,60 Z"/>
+
+  <!-- traps (diamond across upper back) -->
+  <path class="m ${hit('traps')}" d="
+    M100,62 L114,72 L118,86 L114,104 L108,118
+    L100,124 L92,118 L86,104 L82,86 L86,72 Z"/>
+
+  <!-- rear delts -->
+  <path class="m ${hit('rearDelts')}" d="
+    M80,76 C72,80 66,90 64,104
+    C64,114 68,120 74,122
+    C80,120 84,112 84,100
+    C84,88 82,76 80,76 Z"/>
+  <path class="m ${hit('rearDelts')}" d="
+    M120,76 C128,80 134,90 136,104
+    C136,114 132,120 126,122
+    C120,120 116,112 116,100
+    C116,88 118,76 120,76 Z"/>
+
+  <!-- lats (wide V) -->
+  <path class="m ${hit('lats')}" d="
+    M78,104 C72,116 66,132 64,150
+    C62,168 64,186 70,198
+    L84,204 C90,200 92,188 93,174
+    L95,140 L94,120 Z"/>
+  <path class="m ${hit('lats')}" d="
+    M122,104 C128,116 134,132 136,150
+    C138,168 136,186 130,198
+    L116,204 C110,200 108,188 107,174
+    L105,140 L106,120 Z"/>
+
+  <!-- triceps (horseshoe on back of upper arm) -->
+  <path class="m ${hit('triceps')}" d="
+    M60,124 C54,136 50,152 50,168
+    C50,176 54,180 58,178
+    C64,172 68,158 68,144
+    C68,132 64,124 60,124 Z"/>
+  <path class="m ${hit('triceps')}" d="
+    M140,124 C146,136 150,152 150,168
+    C150,176 146,180 142,178
+    C136,172 132,158 132,144
+    C132,132 136,124 140,124 Z"/>
+
+  <!-- forearms (back) -->
+  <path class="m ${hit('forearms')}" d="
+    M52,172 C48,188 46,208 50,224
+    C54,230 60,230 64,222
+    C66,208 68,192 68,178 Z"/>
+  <path class="m ${hit('forearms')}" d="
+    M148,172 C152,188 154,208 150,224
+    C146,230 140,230 136,222
+    C134,208 132,192 132,178 Z"/>
+
+  <!-- lower back / erectors -->
+  <path class="m ${hit('lowerBack')}" d="
+    M86,200 L114,200
+    C116,212 116,222 114,228
+    L100,236 L86,228
+    C84,222 84,212 86,200 Z"/>
+  <!-- spine line -->
+  <path class="sep" d="M100,128 L100,230"/>
+
+  <!-- glutes -->
+  <path class="m ${hit('glutes')}" d="
+    M72,240 C68,252 66,266 70,280
+    C76,290 84,294 94,290
+    C98,284 100,276 100,268
+    L100,244 Z"/>
+  <path class="m ${hit('glutes')}" d="
+    M128,240 C132,252 134,266 130,280
+    C124,290 116,294 106,290
+    C102,284 100,276 100,268
+    L100,244 Z"/>
+
+  <!-- hamstrings -->
+  <path class="m ${hit('hams')}" d="
+    M74,294 C70,314 68,338 70,356
+    C74,360 80,358 84,348
+    C90,334 94,314 98,296
+    L98,292 Z"/>
+  <path class="m ${hit('hams')}" d="
+    M126,294 C130,314 132,338 130,356
+    C126,360 120,358 116,348
+    C110,334 106,314 102,296
+    L102,292 Z"/>
+
+  <!-- calves -->
+  <path class="m ${hit('calves')}" d="
+    M74,362 C70,380 68,400 72,418
+    L86,418 C88,400 88,380 86,364
+    C82,360 78,360 74,362 Z"/>
+  <path class="m ${hit('calves')}" d="
+    M126,362 C130,380 132,400 128,418
+    L114,418 C112,400 112,380 114,364
+    C118,360 122,360 126,362 Z"/>
+</svg>`;
 }
 
 function renderMuscleBox(activeMuscles, opts) {
@@ -2142,8 +2326,7 @@ function openExerciseScreen(name) {
     warmupSets: [],
     workingSets: [],
     phase: 'warmup',
-    current: { weight: '', reps: '' },
-    notes: '',
+    current: { weight: '', reps: '', note: '' },
     timer: null
   };
   state.view = 'exercise';
@@ -2188,16 +2371,10 @@ function renderExercise() {
     ${renderLoggedSets(a)}
     ${a.timer ? renderTimer(a) : renderSetInput(a, currentSetNum)}
 
-    <div style="margin-top: 14px;">
-      <label class="label">Notes (optional)</label>
-      <input id="exNotes" type="text" placeholder="felt strong, dropset, etc." value="${escapeHtml(a.notes || '')}" />
-    </div>
-
-    <div class="fab no-tabs">
-      <button class="btn btn-primary btn-lg" id="finishExBtn" ${workingCount === 0 ? 'disabled' : ''}>
-        Finish Exercise · ${workingCount} working set${workingCount !== 1 ? 's' : ''}
-      </button>
-    </div>
+    <button class="btn btn-primary finish-btn" id="finishExBtn" ${workingCount === 0 ? 'disabled' : ''}>
+      <span class="finish-title">Finish Exercise</span>
+      <span class="finish-sub">${workingCount} working set${workingCount !== 1 ? 's' : ''}</span>
+    </button>
   `;
 }
 
@@ -2210,13 +2387,16 @@ function renderLoggedSets(a) {
   return `
     <div class="set-log">
       ${all.map((s, i) => `
-        <div class="set-log-row ${s.kind}">
+        <div class="set-log-row ${s.kind}${s.note ? ' has-note' : ''}">
           <div class="sl-num">${s.kind === 'warmup' ? 'W' : i - a.warmupSets.length + 1}</div>
           <div class="sl-body">
-            <span class="sl-w">${escapeHtml(s.weight === '' ? 'BW' : s.weight)}</span>
-            <span class="sl-x">×</span>
-            <span class="sl-r">${escapeHtml(String(s.reps))}</span>
-            ${s.restAfter != null ? `<span class="sl-rest"> · rested ${formatTime(s.restAfter)}</span>` : ''}
+            <div class="sl-line">
+              <span class="sl-w">${escapeHtml(s.weight === '' ? 'BW' : s.weight)}</span>
+              <span class="sl-x">×</span>
+              <span class="sl-r">${escapeHtml(String(s.reps))}</span>
+              ${s.restAfter != null ? `<span class="sl-rest"> · rested ${formatTime(s.restAfter)}</span>` : ''}
+            </div>
+            ${s.note ? `<div class="sl-note">${escapeHtml(s.note)}</div>` : ''}
           </div>
           <button class="sl-rm" data-rmset="${s.kind}:${s.idx}" aria-label="Remove">×</button>
         </div>
@@ -2238,6 +2418,7 @@ function renderSetInput(a, setNum) {
   if (prevInPhase) { suggestW = prevInPhase.weight; suggestR = prevInPhase.reps; }
   const currentW = a.current.weight !== '' ? a.current.weight : suggestW;
   const currentR = a.current.reps !== '' ? a.current.reps : suggestR;
+  const currentNote = a.current.note || '';
 
   return `
     <div class="set-input ${a.phase}">
@@ -2269,6 +2450,11 @@ function renderSetInput(a, setNum) {
           <button data-r-adj="1">+1</button>
         </div>
       </div>
+      <div style="margin-bottom: 12px;">
+        <label class="label">Note (optional)</label>
+        <input id="nIn" type="text" placeholder="e.g. ds 14x6, felt strong, failed"
+               value="${escapeHtml(currentNote)}" autocomplete="off" />
+      </div>
       <div class="si-actions">
         <button class="btn btn-primary btn-block btn-lg" id="finishSetBtn">Finish Set → Rest</button>
       </div>
@@ -2278,7 +2464,9 @@ function renderSetInput(a, setNum) {
 
 function parseFirstSetHint(str, preferWarmup) {
   if (!str) return null;
-  const parts = str.split(',').map(s => s.trim()).filter(Boolean);
+  // Strip any per-set notes in parens so "16x8 (ds 14x6)" parses cleanly.
+  const cleaned = str.replace(/\([^)]*\)/g, '').trim();
+  const parts = cleaned.split(',').map(s => s.trim()).filter(Boolean);
   if (parts.length === 0) return null;
   const p = preferWarmup ? parts[0] : parts[parts.length - 1];
   let raw = p.replace(/^W:/i, '').trim();
@@ -2331,15 +2519,17 @@ function bindExercise() {
   document.querySelectorAll('[data-phase]').forEach(btn => {
     btn.addEventListener('click', () => {
       a.phase = btn.dataset.phase;
-      a.current = { weight: '', reps: '' };
+      a.current = { weight: '', reps: '', note: '' };
       render();
     });
   });
 
   const wIn = document.getElementById('wIn');
   const rIn = document.getElementById('rIn');
+  const nIn = document.getElementById('nIn');
   if (wIn) wIn.addEventListener('input', e => { a.current.weight = e.target.value; });
   if (rIn) rIn.addEventListener('input', e => { a.current.reps = e.target.value; });
+  if (nIn) nIn.addEventListener('input', e => { a.current.note = e.target.value; });
   document.querySelectorAll('[data-w-adj]').forEach(btn => {
     btn.addEventListener('click', () => {
       const delta = parseFloat(btn.dataset.wAdj);
@@ -2380,8 +2570,6 @@ function bindExercise() {
   const nextSet = document.getElementById('nextSetBtn');
   if (nextSet) nextSet.addEventListener('click', () => { stopTimer(); render(); });
 
-  const notes = document.getElementById('exNotes');
-  if (notes) notes.addEventListener('input', e => { a.notes = e.target.value; });
   const finEx = document.getElementById('finishExBtn');
   if (finEx) finEx.addEventListener('click', finishExercise);
 }
@@ -2390,13 +2578,16 @@ function finishSet() {
   const a = state.active;
   const wIn = document.getElementById('wIn');
   const rIn = document.getElementById('rIn');
+  const nIn = document.getElementById('nIn');
   let weight = (wIn.value || '').trim();
   const reps = parseInt(rIn.value, 10);
+  const note = (nIn && nIn.value ? nIn.value : '').trim();
   if (!reps || reps <= 0) { toast('Enter reps', 'error'); return; }
   if (/^(bw|bodyweight)$/i.test(weight)) weight = '';
   const entry = { weight: weight, reps: reps };
+  if (note) entry.note = note;
   if (a.phase === 'warmup') a.warmupSets.push(entry); else a.workingSets.push(entry);
-  a.current = { weight: '', reps: '' };
+  a.current = { weight: '', reps: '', note: '' };
   startTimer(a.restSec);
   render();
 }
@@ -2463,10 +2654,12 @@ function finishExercise() {
   const a = state.active;
   if (a.workingSets.length === 0) { toast('Log at least one working set', 'error'); return; }
   const setsString = formatExerciseSets(a.warmupSets, a.workingSets);
+  // Per-set notes are embedded inside setsString (e.g. "16x8 (ds 14x6)").
+  // Exercise-level notes field kept empty for backend compatibility.
   state.session.entries.push({
     exercise: a.name,
     sets: setsString,
-    notes: a.notes || ''
+    notes: ''
   });
   state.session.lastExercise = a.name;
   if (state.timer) { clearInterval(state.timer); state.timer = null; }
