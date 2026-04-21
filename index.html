@@ -1211,10 +1211,67 @@ function isSheet8Tab(tab) {
   return hasMarch && hasApril && has2026;
 }
 
-// Get Sheet-8-only recent session rows (one row per exercise per day).
+// Get the in-scope rows (one row per exercise per day).
+// A row counts if EITHER its tab field matches the current block OR it has no
+// tab field but its date falls inside the block (March 2026 onward). Defensive
+// against backends that don't stamp each row with a tab name.
+//
+// The source sheet leaves column A blank on follow-up exercises within the
+// same day's session (date only appears on the first row of the session). We
+// propagate the session's date across those blank rows. Direction depends on
+// the array's ordering — sniff it from the first few dated rows so the same
+// code works whether the backend returns sheet-order (oldest first) or
+// reverse-chronological (newest first).
 function sheet8Rows() {
   if (!state.data || !state.data.recentSessions) return [];
-  return state.data.recentSessions.filter(s => isSheet8Tab(s.tab));
+  const raw = state.data.recentSessions;
+
+  // Sniff ordering: compare the first and last rows with a parseable date.
+  // If earlier indices hold older dates → "forward" (sheet order).
+  // If earlier indices hold newer dates → "reverse" (chronologically reversed).
+  const datedIdx = [];
+  for (let i = 0; i < raw.length; i++) {
+    const d = parseSheetDate(raw[i] && raw[i].date);
+    if (d) datedIdx.push({ i, d });
+    if (datedIdx.length >= 2) break;
+  }
+  let reverse = false;
+  if (datedIdx.length >= 2) {
+    reverse = datedIdx[0].d > datedIdx[1].d;
+  } else if (datedIdx.length === 1) {
+    // Only one dated row in the scanned prefix; look from the end too.
+    for (let i = raw.length - 1; i >= 0; i--) {
+      const d = parseSheetDate(raw[i] && raw[i].date);
+      if (d && i !== datedIdx[0].i) {
+        reverse = datedIdx[0].d > d;
+        break;
+      }
+    }
+  }
+
+  const filled = raw.slice();
+  if (!reverse) {
+    // Forward pass: blank rows inherit from the most recent earlier date.
+    let run = '';
+    for (let i = 0; i < filled.length; i++) {
+      const s = filled[i];
+      const d = (s && s.date) ? String(s.date).trim() : '';
+      if (d) run = d;
+      else if (run) filled[i] = { ...s, date: run };
+    }
+  } else {
+    // Backward pass: blank rows inherit from the next later row (which, in
+    // reverse-chronological, belongs to the same or older session).
+    let run = '';
+    for (let i = filled.length - 1; i >= 0; i--) {
+      const s = filled[i];
+      const d = (s && s.date) ? String(s.date).trim() : '';
+      if (d) run = d;
+      else if (run) filled[i] = { ...s, date: run };
+    }
+  }
+
+  return filled.filter(isSheet8Entry);
 }
 
 // Group rows into sessions: one session = one (date + sessionType) pair.
