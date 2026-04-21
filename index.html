@@ -1837,9 +1837,12 @@ function render() {
     document.body.insertAdjacentHTML('beforeend', renderPicker());
     bindPicker();
   }
+  // Always tear down the previous day sheet before deciding whether to re-add.
+  // Without this, setting state.daySheet=null and re-rendering leaves the old
+  // backdrop in the DOM and the ✕ button appears to do nothing.
+  const existingDs = document.getElementById('daySheetBackdrop');
+  if (existingDs) existingDs.remove();
   if (state.daySheet) {
-    const existingDs = document.getElementById('daySheetBackdrop');
-    if (existingDs) existingDs.remove();
     document.body.insertAdjacentHTML('beforeend', renderDaySheet());
     bindDaySheet();
   }
