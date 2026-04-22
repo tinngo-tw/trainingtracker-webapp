@@ -1336,7 +1336,7 @@ function groupedSheet8Sessions() {
 function trainedDayMap() {
   const map = new Map();
   for (const s of groupedSheet8Sessions()) {
-    const key = s.localDateKey(dateObj);
+    const key = localDateKey(s.dateObj);
     map.set(key, s.type);
   }
   return map;
