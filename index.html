@@ -1035,6 +1035,18 @@ function todayFormatted() {
   return months[d.getMonth()] + ' ' + d.getDate();
 }
 
+// YYYY-MM-DD key in the LOCAL timezone. Needed instead of
+// `d.toISOString().slice(0,10)` because Date(y,m,d) creates at local midnight
+// and toISOString() converts to UTC — which flips the day across any timezone
+// offset and makes the calendar highlight the wrong cell.
+function localDateKey(d) {
+  if (!(d instanceof Date) || isNaN(d)) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + dd;
+}
+
 function escapeHtml(s) {
   if (s === null || s === undefined) return '';
   return String(s).replace(/[&<>"']/g, c => ({
@@ -1287,7 +1299,7 @@ function groupedSheet8Sessions() {
     const dayType = classifyExercise(r.exercise);
     // Preliminary key by date only; we'll merge same-day entries and pick
     // a dominant type so "Push session" shows once even if a cardio warmup row exists.
-    const key = dateObj.toISOString().slice(0, 10);
+    const key = localDateKey(dateObj);
     if (!byKey.has(key)) {
       byKey.set(key, { dateObj, dateLabel: r.date, typeCounts: {}, exercises: [] });
     }
@@ -1320,7 +1332,7 @@ function groupedSheet8Sessions() {
 function trainedDayMap() {
   const map = new Map();
   for (const s of groupedSheet8Sessions()) {
-    const key = s.dateObj.toISOString().slice(0, 10);
+    const key = s.localDateKey(dateObj);
     map.set(key, s.type);
   }
   return map;
@@ -1850,7 +1862,7 @@ function render() {
 
 function renderDaySheet() {
   const key = state.daySheet.dateKey;
-  const sessions = groupedSheet8Sessions().filter(s => s.dateObj.toISOString().slice(0,10) === key);
+  const sessions = groupedSheet8Sessions().filter(s => localDateKey(s.dateObj) === key);
   const dt = new Date(key + 'T00:00:00');
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -2040,7 +2052,7 @@ function renderHome() {
         : recent.map(s => {
             const typeName = typeDisplayName(s.type);
             return `
-              <button class="session-card" data-session-date="${s.dateObj.toISOString().slice(0,10)}">
+              <button class="session-card" data-session-date="${localDateKey(s.dateObj)}">
                 <div style="flex:1; min-width: 0;">
                   <div class="date">${escapeHtml(s.dateLabel)}</div>
                   <div class="name">${escapeHtml(typeName)} · ${s.exercises.length} exercise${s.exercises.length !== 1 ? 's' : ''}</div>
@@ -2063,14 +2075,14 @@ function renderCalendar(trainedDays) {
   const startCol = (first.getDay() + 6) % 7; // Mon=0 .. Sun=6
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const today = new Date();
-  const todayKey = today.toISOString().slice(0,10);
+  const todayKey = localDateKey(today);
 
   let cells = '';
   // Empty leading cells
   for (let i = 0; i < startCol; i++) cells += `<div class="cal-cell empty"></div>`;
   for (let day = 1; day <= daysInMonth; day++) {
     const dt = new Date(y, m, day);
-    const key = dt.toISOString().slice(0,10);
+    const key = localDateKey(dt);
     const type = trainedDays.get(key);
     const isToday = key === todayKey;
     const classes = ['cal-cell'];
