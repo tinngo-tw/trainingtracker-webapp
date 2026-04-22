@@ -397,6 +397,8 @@
     position: relative; overflow: hidden;
   }
   .type-card .type-icon svg { width: 30px; height: 30px; }
+  /* Emoji icons use font size — SVG icons keep their explicit sizing. */
+  .type-card .type-icon { font-size: 30px; line-height: 1; }
   .type-card .type-name {
     font-family: 'Archivo Black', sans-serif;
     font-size: 20px; letter-spacing: -0.01em;
@@ -1994,7 +1996,7 @@ function renderTopBar(context) {
     mid = `<div class="title-mid">Progress</div>`;
   } else if (context === 'runLog') {
     left = `<button class="icon-btn" id="backBtn" aria-label="Back">←</button>`;
-    mid = `<div class="title-mid">Run Log</div>`;
+    mid = `<div class="title-mid">Run</div>`;
   }
   return `
     <div class="top-bar">
@@ -2078,10 +2080,10 @@ function renderHome() {
       <span class="meta">pick one</span>
     </div>
     <div class="type-grid">
-      ${renderTypeCard('push', 'Push', 'chest · shoulders · triceps', iconPush())}
-      ${renderTypeCard('pull', 'Pull', 'back · biceps · rear delts', iconPull())}
-      ${renderTypeCard('legs', 'Legs', 'quads · hams · glutes · calves', iconLegs())}
-      ${renderTypeCard('cardio', 'Run Log', 'interval · long · easy', iconCardio())}
+      ${renderTypeCard('push', 'Push', 'chest · shoulders · triceps', '🏋️‍♂️')}
+      ${renderTypeCard('pull', 'Pull', 'back · biceps · rear delts', '💪')}
+      ${renderTypeCard('legs', 'Legs', 'quads · hams · glutes · calves', '🦿')}
+      ${renderTypeCard('cardio', 'Run', 'interval · long · easy', '🏃')}
     </div>
 
     <div class="section-title">
@@ -2224,7 +2226,7 @@ function renderRunLog() {
   if (r.phase === 'pickType') {
     return `
       <div class="hero">
-        <div class="kicker">Run Log · ${escapeHtml(todayFormatted())}</div>
+        <div class="kicker">Run · ${escapeHtml(todayFormatted())}</div>
         <div class="count mono">🏃</div>
         <div class="sub">pick a run type</div>
       </div>
@@ -2916,30 +2918,59 @@ async function saveSession() {
 // ============================================================
 // RUNNING TRACKER
 // ============================================================
-// Parse a "Run" set string such as "3k @7.32, acc. 5.51k" (with optional
-// "Interval"/"Long run"/"Easy run"/"Tempo" tag). Returns null if the string
-// doesn't look like a run entry.
+// Parse a "Run" set string. Handles several formats:
+//   "3k @7.32, acc. 5.51k"
+//   "Interval 3k @6.30, acc. 6.2k"
+//   "Easy run 5k @7:30"                       (no acc, colon pace)
+//   "Interval · 1 run - 2 jog, 3k @ pace 5 - 9"  (pace range + word "pace")
+//   "10k"                                      (bare distance, no pace)
+// Returns null if no distance is found.
 function parseRun(setsStr) {
   if (!setsStr) return null;
   const s = String(setsStr);
-  // Main: "<runKm>k @<min>.<sec>" — pace minutes and seconds separated by
-  // either "." (sheet convention) or ":" (Strava-ish).
-  const mainMatch = s.match(/(\d+(?:\.\d+)?)\s*k\s*@\s*(\d+)[.:](\d{1,2})/i);
-  if (!mainMatch) return null;
-  const runKm = parseFloat(mainMatch[1]);
-  const paceMin = parseInt(mainMatch[2], 10);
-  const paceSec = parseInt(mainMatch[3], 10);
-  // "acc. 5.51k" — if absent, treat the run itself as the accumulated total.
-  const accMatch = s.match(/acc\.?\s*(\d+(?:\.\d+)?)\s*k/i);
-  const accKm = accMatch ? parseFloat(accMatch[1]) : runKm;
-  // Optional training tag (anywhere in the string).
+
+  // Peel off the "acc." portion first so it doesn't get confused with the run
+  // distance when searching for the first Xk token.
+  const accMatch = s.match(/acc\.?\s*(\d+(?:\.\d+)?)\s*k(?:m)?\b/i);
+  const accKmRaw = accMatch ? parseFloat(accMatch[1]) : null;
+  const rest = accMatch ? s.replace(accMatch[0], ' ') : s;
+
+  // First Xk (or Xkm) in the remaining string is the run distance.
+  const distMatch = rest.match(/(\d+(?:\.\d+)?)\s*k(?:m)?\b/i);
+  if (!distMatch) return null;
+  const runKm = parseFloat(distMatch[1]);
+
+  // Pace. Optional. Accepts:
+  //   "@7.32"  "@7:32"  "@ pace 7.32"  "@ pace 5 - 9"  "@5-9"
+  // For ranges, use the midpoint so one "representative" pace can be shown.
+  let paceMin = 0, paceSec = 0;
+  const paceMatch = rest.match(
+    /@\s*(?:pace\s+)?(\d+)(?:[.:](\d{1,2}))?(?:\s*-\s*(\d+)(?:[.:](\d{1,2}))?)?/i
+  );
+  if (paceMatch) {
+    const m1 = parseInt(paceMatch[1], 10) || 0;
+    const s1 = parseInt(paceMatch[2] || '0', 10) || 0;
+    if (paceMatch[3]) {
+      const m2 = parseInt(paceMatch[3], 10) || 0;
+      const s2 = parseInt(paceMatch[4] || '0', 10) || 0;
+      const midSec = Math.round(((m1 * 60 + s1) + (m2 * 60 + s2)) / 2);
+      paceMin = Math.floor(midSec / 60);
+      paceSec = midSec % 60;
+    } else {
+      paceMin = m1;
+      paceSec = s1;
+    }
+  }
+
+  // Optional training tag anywhere in the original string.
   const typeMatch = s.match(/\b(interval|long[\s-]*run|easy[\s-]*run|tempo|fartlek|recovery)\b/i);
   const runType = typeMatch ? typeMatch[0].toLowerCase().replace(/\s+/g, ' ') : null;
+
   return {
     runKm: isNaN(runKm) ? 0 : runKm,
-    accKm: isNaN(accKm) ? 0 : accKm,
-    paceMin: isNaN(paceMin) ? 0 : paceMin,
-    paceSec: isNaN(paceSec) ? 0 : paceSec,
+    accKm: accKmRaw !== null && !isNaN(accKmRaw) ? accKmRaw : runKm,
+    paceMin: paceMin,
+    paceSec: paceSec,
     runType: runType
   };
 }
