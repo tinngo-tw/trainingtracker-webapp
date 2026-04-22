@@ -739,6 +739,41 @@
   .chart-svg .pt { fill: var(--accent); }
   .chart-svg .pt-last { fill: var(--accent); stroke: var(--accent-ink); stroke-width: 2; }
 
+  /* ===== RUNNING TRACKER ===== */
+  .running-section { margin-bottom: 18px; }
+  .running-section .section-title { margin-top: 4px; }
+  .run-metric-toggle {
+    display: inline-flex; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px; gap: 2px;
+  }
+  .run-metric-toggle button {
+    padding: 5px 12px; border-radius: 999px; font-size: 12px;
+    color: var(--text-dim); font-weight: 600;
+  }
+  .run-metric-toggle button.on { background: var(--accent); color: var(--accent-ink); }
+  .running-section .stat-sub.positive { color: var(--accent); }
+  .running-section .stat-sub.negative { color: var(--danger); }
+  .run-legend {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 11px; color: var(--text-faint); font-weight: 500;
+  }
+  .run-legend .legend-swatch {
+    display: inline-block; width: 12px; height: 3px; vertical-align: middle;
+    margin-right: 4px; border-radius: 2px;
+  }
+  .run-legend .legend-swatch.this { background: var(--accent); }
+  .run-legend .legend-swatch.last { background: #666; }
+  .run-chart { width: 100%; height: 220px; display: block; }
+  .run-chart .grid { stroke: var(--border); stroke-width: 0.5; }
+  .run-chart .axis-label {
+    fill: var(--text-faint); font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .run-chart .line-this { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+  .run-chart .line-last { fill: none; stroke: #666; stroke-width: 1.8; stroke-dasharray: 4 3; stroke-linejoin: round; }
+  .run-chart .pt-this { fill: var(--accent); }
+  .run-chart .pt-last { fill: #666; }
+
   .hist-table {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 14px 16px;
@@ -925,6 +960,9 @@ let state = {
 
   // Run log state (null when not in run log flow)
   runLog: null, // { phase: 'pickType'|'entry', runType, text, saving }
+
+  // Running tracker metric toggle on Progress tab: 'acc' or 'run'
+  runningMetric: 'acc',
 
   // Timer singleton
   timer: null
@@ -2875,6 +2913,207 @@ async function saveSession() {
 // ============================================================
 // PROGRESS (exercise list)
 // ============================================================
+// ============================================================
+// RUNNING TRACKER
+// ============================================================
+// Parse a "Run" set string such as "3k @7.32, acc. 5.51k" (with optional
+// "Interval"/"Long run"/"Easy run"/"Tempo" tag). Returns null if the string
+// doesn't look like a run entry.
+function parseRun(setsStr) {
+  if (!setsStr) return null;
+  const s = String(setsStr);
+  // Main: "<runKm>k @<min>.<sec>" — pace minutes and seconds separated by
+  // either "." (sheet convention) or ":" (Strava-ish).
+  const mainMatch = s.match(/(\d+(?:\.\d+)?)\s*k\s*@\s*(\d+)[.:](\d{1,2})/i);
+  if (!mainMatch) return null;
+  const runKm = parseFloat(mainMatch[1]);
+  const paceMin = parseInt(mainMatch[2], 10);
+  const paceSec = parseInt(mainMatch[3], 10);
+  // "acc. 5.51k" — if absent, treat the run itself as the accumulated total.
+  const accMatch = s.match(/acc\.?\s*(\d+(?:\.\d+)?)\s*k/i);
+  const accKm = accMatch ? parseFloat(accMatch[1]) : runKm;
+  // Optional training tag (anywhere in the string).
+  const typeMatch = s.match(/\b(interval|long[\s-]*run|easy[\s-]*run|tempo|fartlek|recovery)\b/i);
+  const runType = typeMatch ? typeMatch[0].toLowerCase().replace(/\s+/g, ' ') : null;
+  return {
+    runKm: isNaN(runKm) ? 0 : runKm,
+    accKm: isNaN(accKm) ? 0 : accKm,
+    paceMin: isNaN(paceMin) ? 0 : paceMin,
+    paceSec: isNaN(paceSec) ? 0 : paceSec,
+    runType: runType
+  };
+}
+
+// Pull every parseable Run entry out of the active-block sessions.
+function getAllRuns() {
+  const sessions = groupedSheet8Sessions();
+  const runs = [];
+  for (const s of sessions) {
+    for (const e of s.exercises) {
+      if (!/^\s*run\s*$/i.test(e.name)) continue;
+      const parsed = parseRun(e.sets);
+      if (!parsed) continue;
+      runs.push({
+        runKm: parsed.runKm,
+        accKm: parsed.accKm,
+        paceMin: parsed.paceMin,
+        paceSec: parsed.paceSec,
+        runType: parsed.runType,
+        date: s.dateObj,
+        dateLabel: s.dateLabel
+      });
+    }
+  }
+  runs.sort((a, b) => a.date - b.date);
+  return runs;
+}
+
+// Monday 00:00 local time for the week containing d.
+function mondayOfWeek(d) {
+  const dt = new Date(d);
+  dt.setHours(0, 0, 0, 0);
+  const dayIdx = (dt.getDay() + 6) % 7; // Mon=0
+  dt.setDate(dt.getDate() - dayIdx);
+  return dt;
+}
+
+// Returns 7 cumulative values [Mon, Tue, ..., Sun] of `metric` ('acc' | 'run')
+// for the week starting at `mondayDate`.
+function weekCumulative(runs, mondayDate, metric) {
+  const perDay = [0, 0, 0, 0, 0, 0, 0];
+  const monday = mondayOfWeek(mondayDate);
+  const sunday = new Date(monday); sunday.setDate(sunday.getDate() + 7);
+  for (const r of runs) {
+    if (r.date < monday || r.date >= sunday) continue;
+    const dayIdx = (r.date.getDay() + 6) % 7;
+    perDay[dayIdx] += (metric === 'run') ? r.runKm : r.accKm;
+  }
+  let running = 0;
+  return perDay.map(v => (running += v));
+}
+
+// All weeks in the active block, sorted oldest-first.
+function runsByWeek(metric) {
+  const runs = getAllRuns();
+  if (runs.length === 0) return [];
+  const byMon = new Map();
+  for (const r of runs) {
+    const mon = mondayOfWeek(r.date).getTime();
+    if (!byMon.has(mon)) byMon.set(mon, { monday: new Date(mon), runs: [], totalAcc: 0, totalRun: 0 });
+    const b = byMon.get(mon);
+    b.runs.push(r);
+    b.totalAcc += r.accKm;
+    b.totalRun += r.runKm;
+  }
+  const weeks = Array.from(byMon.values()).sort((a, b) => a.monday - b.monday);
+  weeks.forEach(w => { w.total = metric === 'run' ? w.totalRun : w.totalAcc; });
+  return weeks;
+}
+
+function renderRunning() {
+  const metric = state.runningMetric || 'acc';
+  const runs = getAllRuns();
+  if (runs.length === 0) {
+    return `
+      <div class="running-section">
+        <div class="section-title"><h3>Running</h3></div>
+        <div class="empty-state">No runs logged yet. Log a run with sets like <span class="mono">3k @7.32, acc. 5.51k</span> and it'll appear here.</div>
+      </div>
+    `;
+  }
+
+  const now = new Date();
+  const mondayThis = mondayOfWeek(now);
+  const mondayLast = new Date(mondayThis); mondayLast.setDate(mondayLast.getDate() - 7);
+  const thisCum = weekCumulative(runs, mondayThis, metric);
+  const lastCum = weekCumulative(runs, mondayLast, metric);
+  const thisTotal = thisCum[6] || 0;
+  const lastTotal = lastCum[6] || 0;
+  const delta = thisTotal - lastTotal;
+  const deltaStr = (delta >= 0 ? '+' : '') + delta.toFixed(2) + 'km vs last';
+
+  return `
+    <div class="running-section">
+      <div class="section-title">
+        <h3>Running</h3>
+        <div class="run-metric-toggle">
+          <button class="${metric === 'acc' ? 'on' : ''}" data-run-metric="acc">Acc</button>
+          <button class="${metric === 'run' ? 'on' : ''}" data-run-metric="run">Run</button>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="stat-label">This week</div>
+          <div class="stat-value mono">${thisTotal.toFixed(2)}<span class="stat-unit">km</span></div>
+          <div class="stat-sub ${delta >= 0 ? 'positive' : 'negative'}">${escapeHtml(deltaStr)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Last week</div>
+          <div class="stat-value mono">${lastTotal.toFixed(2)}<span class="stat-unit">km</span></div>
+          <div class="stat-sub">${runs.length} run${runs.length !== 1 ? 's' : ''} total</div>
+        </div>
+      </div>
+
+      ${renderRunningChart(thisCum, lastCum)}
+    </div>
+  `;
+}
+
+function renderRunningChart(thisCum, lastCum) {
+  const W = 560, H = 220;
+  const padL = 38, padR = 16, padT = 14, padB = 30;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const maxY = Math.max(1, ...thisCum, ...lastCum);
+  // Nice round max: snap up to the next 1 / 5 / 10 / 20 depending on scale.
+  const step = maxY <= 4 ? 1 : maxY <= 20 ? 5 : maxY <= 50 ? 10 : 20;
+  const niceMax = Math.ceil(maxY / step) * step;
+  const x = (i) => padL + (i / 6) * plotW;
+  const y = (v) => padT + plotH - (v / niceMax) * plotH;
+  const pathFor = (arr) => arr.map((v, i) => (i === 0 ? 'M' : 'L') + ' ' + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+  const dayLabels = ['M','T','W','T','F','S','S'];
+  const gridLevels = [0, 0.5, 1];
+
+  return `
+    <div class="chart-box">
+      <div class="cb-head">
+        <div class="cb-label">Cumulative km · Mon\u2013Sun</div>
+        <div class="run-legend">
+          <span class="legend-swatch this"></span> This week
+          <span class="legend-swatch last"></span> Last
+        </div>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" class="run-chart" preserveAspectRatio="xMidYMid meet">
+        ${gridLevels.map(f => {
+          const gy = padT + plotH - f * plotH;
+          return '<line class="grid" x1="' + padL + '" y1="' + gy.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + gy.toFixed(1) + '"/>';
+        }).join('')}
+        ${gridLevels.map(f => {
+          const gy = padT + plotH - f * plotH;
+          const lv = (niceMax * f);
+          const label = Number.isInteger(lv) ? String(lv) : lv.toFixed(1);
+          return '<text class="axis-label" x="' + (padL - 6) + '" y="' + (gy + 3).toFixed(1) + '" text-anchor="end">' + label + '</text>';
+        }).join('')}
+        ${dayLabels.map((d, i) => '<text class="axis-label" x="' + x(i).toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle">' + d + '</text>').join('')}
+        <path class="line-last" d="${pathFor(lastCum)}"/>
+        ${lastCum.map((v, i) => '<circle class="pt-last" cx="' + x(i).toFixed(1) + '" cy="' + y(v).toFixed(1) + '" r="2.5"/>').join('')}
+        <path class="line-this" d="${pathFor(thisCum)}"/>
+        ${thisCum.map((v, i) => '<circle class="pt-this" cx="' + x(i).toFixed(1) + '" cy="' + y(v).toFixed(1) + '" r="3.5"/>').join('')}
+      </svg>
+    </div>
+  `;
+}
+
+function bindRunning() {
+  document.querySelectorAll('[data-run-metric]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.runningMetric = btn.dataset.runMetric;
+      render();
+    });
+  });
+}
+
 function renderProgress() {
   const d = state.data || { exercises: [] };
   const type = state.progress.typeFilter || 'push';
@@ -2903,6 +3142,8 @@ function renderProgress() {
       <div class="count mono">${totalSheet8Exercises}</div>
       <div class="sub">exercises tracked since Mar 2026</div>
     </div>
+
+    ${renderRunning()}
 
     <div class="prog-tabs">
       <button class="prog-tab ${type === 'push' ? 'on push' : ''}" data-prog-type="push">Push</button>
@@ -2936,6 +3177,7 @@ function renderProgress() {
 
 function bindProgress() {
   document.getElementById('settingsBtn').addEventListener('click', openSettings);
+  bindRunning();
   document.querySelectorAll('[data-prog-type]').forEach(btn => {
     btn.addEventListener('click', () => {
       state.progress.typeFilter = btn.dataset.progType;
