@@ -477,6 +477,18 @@
     text-transform: uppercase; letter-spacing: -0.01em;
   }
   .session-meta-bar .st-date { color: var(--accent); }
+  .session-meta-bar .st-date-field {
+    position: relative; display: inline-flex; align-items: center; gap: 6px;
+    cursor: pointer;
+  }
+  .session-meta-bar .st-date-edit {
+    color: var(--text-faint); font-size: 12px; padding-left: 4px;
+  }
+  .session-meta-bar .st-date-input {
+    position: absolute; inset: 0; opacity: 0; padding: 0; border: 0;
+    background: transparent; cursor: pointer; width: 100%; height: 100%;
+    color-scheme: dark;
+  }
 
   .exercise-done-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
   .done-card {
@@ -576,8 +588,12 @@
     margin-top: 4px; line-height: 1.35;
     word-break: break-word;
   }
+  .set-log-row .sl-edit { color: var(--text-faint); padding: 4px 8px; align-self: flex-start; font-size: 14px; }
+  .set-log-row .sl-edit:active { color: var(--accent); }
   .set-log-row .sl-rm { color: var(--text-faint); padding: 4px 8px; align-self: flex-start; }
   .set-log-row .sl-rm:active { color: var(--danger); }
+  .set-log-row.editing { border-color: var(--accent); }
+  .set-input.editing-mode { border-color: var(--accent); border-width: 2px; }
 
   /* ===== SET INPUT ===== */
   .set-input {
@@ -622,6 +638,48 @@
 
   .si-actions { display: flex; gap: 8px; }
   .si-actions .btn { flex: 1; }
+
+  .resume-rest-pill {
+    display: block; margin: 12px auto 0; padding: 6px 14px;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 999px; font-size: 12px; font-weight: 500;
+    color: var(--text-dim); letter-spacing: 0.04em;
+  }
+  .resume-rest-pill:active { color: var(--text); border-color: var(--border-bright); }
+
+  /* ===== MOTIVATION QUOTE MODAL ===== */
+  .quote-backdrop {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+    display: grid; place-items: center;
+    padding: 24px;
+    animation: quote-fade-in 0.25s ease-out;
+  }
+  @keyframes quote-fade-in { from { opacity: 0; } to { opacity: 1; } }
+  .quote-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 28px 24px 22px;
+    max-width: 460px; width: 100%;
+    text-align: center;
+    animation: quote-pop-in 0.3s cubic-bezier(.2,.8,.2,1.1);
+  }
+  @keyframes quote-pop-in { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .quote-card .quote-kicker {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.15em;
+    color: var(--accent); margin-bottom: 18px;
+  }
+  .quote-card .quote-body {
+    font-family: 'Inter', sans-serif;
+    font-size: 18px; line-height: 1.45; font-weight: 500;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  .quote-card .quote-attrib {
+    font-size: 13px; color: var(--text-dim);
+    margin-bottom: 22px; font-style: italic;
+  }
+  .quote-card .quote-close { margin-top: 4px; }
 
   /* ===== TIMER ===== */
   .timer-card {
@@ -2354,7 +2412,13 @@ function renderSession() {
       </div>
       <div style="text-align:right;">
         <div class="st-label">Date</div>
-        <div class="st-value st-date mono">${escapeHtml(s.date)}</div>
+        <label class="st-date-field" for="sessDateIn" aria-label="Change session date">
+          <span class="st-value st-date mono">${escapeHtml(s.date)}</span>
+          <span class="st-date-edit">✎</span>
+          <input id="sessDateIn" class="st-date-input" type="date"
+                 value="${escapeHtml(monthDayToIso(s.date) || todayIso())}"
+                 max="${todayIso()}" />
+        </label>
       </div>
     </div>
 
@@ -2429,7 +2493,34 @@ function bindSession() {
   });
   const finish = document.getElementById('finishSessionBtn');
   if (finish) finish.addEventListener('click', saveSession);
+
+  const sessDate = document.getElementById('sessDateIn');
+  if (sessDate) sessDate.addEventListener('change', e => {
+    const md = isoToMonthDay(e.target.value);
+    if (md) {
+      state.session.date = md;
+      render();
+    }
+  });
 }
+
+// "April 22" -> "2026-04-22" (using parseSheetDate for the year inference).
+function monthDayToIso(md) {
+  const d = parseSheetDate(md);
+  return d ? localDateKey(d) : '';
+}
+// "2026-04-22" -> "April 22" (matches todayFormatted's style).
+function isoToMonthDay(iso) {
+  if (!iso) return '';
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return '';
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthIdx = parseInt(m[2], 10) - 1;
+  const day = parseInt(m[3], 10);
+  if (monthIdx < 0 || monthIdx > 11 || isNaN(day)) return '';
+  return months[monthIdx] + ' ' + day;
+}
+function todayIso() { return localDateKey(new Date()); }
 
 // ============================================================
 // EXERCISE (logging)
@@ -2443,6 +2534,7 @@ function openExerciseScreen(name) {
     workingSets: [],
     phase: 'warmup',
     current: { weight: '', reps: '', note: '' },
+    editingSet: null, // { kind, idx } when editing a previously logged set
     timer: null
   };
   state.view = 'exercise';
@@ -2485,7 +2577,7 @@ function renderExercise() {
     </div>
 
     ${renderLoggedSets(a)}
-    ${a.timer ? renderTimer(a) : renderSetInput(a, currentSetNum)}
+    ${a.timer && !a.editingSet ? renderTimer(a) : renderSetInput(a, currentSetNum)}
 
     <button class="btn btn-primary finish-btn" id="finishExBtn" ${workingCount === 0 ? 'disabled' : ''}>
       <span class="finish-title">Finish Exercise</span>
@@ -2500,47 +2592,60 @@ function renderLoggedSets(a) {
     ...a.workingSets.map((s, i) => ({ ...s, kind: 'working', idx: i }))
   ];
   if (all.length === 0) return '';
+  const editing = a.editingSet;
   return `
     <div class="set-log">
-      ${all.map((s, i) => `
-        <div class="set-log-row ${s.kind}${s.note ? ' has-note' : ''}">
-          <div class="sl-num">${s.kind === 'warmup' ? 'W' : i - a.warmupSets.length + 1}</div>
-          <div class="sl-body">
-            <div class="sl-line">
-              <span class="sl-w">${escapeHtml(s.weight === '' ? 'BW' : s.weight)}</span>
-              <span class="sl-x">×</span>
-              <span class="sl-r">${escapeHtml(String(s.reps))}</span>
-              ${s.restAfter != null ? `<span class="sl-rest"> · rested ${formatTime(s.restAfter)}</span>` : ''}
+      ${all.map((s, i) => {
+        const isEditing = editing && editing.kind === s.kind && editing.idx === s.idx;
+        return `
+          <div class="set-log-row ${s.kind}${s.note ? ' has-note' : ''}${isEditing ? ' editing' : ''}">
+            <div class="sl-num">${s.kind === 'warmup' ? 'W' : i - a.warmupSets.length + 1}</div>
+            <div class="sl-body">
+              <div class="sl-line">
+                <span class="sl-w">${escapeHtml(s.weight === '' ? 'BW' : s.weight)}</span>
+                <span class="sl-x">×</span>
+                <span class="sl-r">${escapeHtml(String(s.reps))}</span>
+                ${s.restAfter != null ? `<span class="sl-rest"> · rested ${formatTime(s.restAfter)}</span>` : ''}
+              </div>
+              ${s.note ? `<div class="sl-note">${escapeHtml(s.note)}</div>` : ''}
             </div>
-            ${s.note ? `<div class="sl-note">${escapeHtml(s.note)}</div>` : ''}
+            <button class="sl-edit" data-editset="${s.kind}:${s.idx}" aria-label="Edit set">✎</button>
+            <button class="sl-rm" data-rmset="${s.kind}:${s.idx}" aria-label="Remove">×</button>
           </div>
-          <button class="sl-rm" data-rmset="${s.kind}:${s.idx}" aria-label="Remove">×</button>
-        </div>
-      `).join('')}
+        `;
+      }).join('')}
     </div>
   `;
 }
 
 function renderSetInput(a, setNum) {
+  const editing = a.editingSet;
+  const editPhase = editing ? editing.kind : a.phase;
+  const editIdx = editing ? editing.idx : null;
+
   const exMeta = findExercise(a.name);
   let suggestW = '', suggestR = '';
   if (exMeta && exMeta.history && exMeta.history[0]) {
-    const parsed = parseFirstSetHint(exMeta.history[0].sets, a.phase === 'warmup');
+    const parsed = parseFirstSetHint(exMeta.history[0].sets, editPhase === 'warmup');
     if (parsed) { suggestW = parsed.weight; suggestR = parsed.reps; }
   }
-  const prevInPhase = a.phase === 'warmup'
+  const prevInPhase = editPhase === 'warmup'
     ? a.warmupSets[a.warmupSets.length - 1]
     : a.workingSets[a.workingSets.length - 1];
-  if (prevInPhase) { suggestW = prevInPhase.weight; suggestR = prevInPhase.reps; }
+  if (prevInPhase && !editing) { suggestW = prevInPhase.weight; suggestR = prevInPhase.reps; }
   const currentW = a.current.weight !== '' ? a.current.weight : suggestW;
   const currentR = a.current.reps !== '' ? a.current.reps : suggestR;
   const currentNote = a.current.note || '';
 
+  const phaseLabel = editPhase === 'warmup' ? 'Warmup Set' : 'Working Set';
+  const headerLabel = editing ? `Editing ${phaseLabel}` : phaseLabel;
+  const numLabel = editing ? `Set #${editIdx + 1}` : `Set #${setNum}`;
+
   return `
-    <div class="set-input ${a.phase}">
+    <div class="set-input ${editPhase}${editing ? ' editing-mode' : ''}">
       <div class="si-head">
-        <div class="si-phase">${a.phase === 'warmup' ? 'Warmup Set' : 'Working Set'}</div>
-        <div class="si-num">Set #${setNum}</div>
+        <div class="si-phase">${headerLabel}</div>
+        <div class="si-num">${numLabel}</div>
       </div>
       <div class="input-grid">
         <div>
@@ -2572,8 +2677,18 @@ function renderSetInput(a, setNum) {
                value="${escapeHtml(currentNote)}" autocomplete="off" />
       </div>
       <div class="si-actions">
-        <button class="btn btn-primary btn-block btn-lg" id="finishSetBtn">Finish Set → Rest</button>
+        ${editing ? `
+          <button class="btn" id="cancelEditBtn">Cancel</button>
+          <button class="btn btn-primary btn-lg" id="saveEditBtn">Save changes</button>
+        ` : `
+          <button class="btn btn-primary btn-block btn-lg" id="finishSetBtn">Finish Set → Rest</button>
+        `}
       </div>
+      ${!editing && (a.warmupSets.length + a.workingSets.length) > 0 ? `
+        <button class="resume-rest-pill" id="resumeRestBtn" type="button" aria-label="Resume rest timer">
+          ↺ Resume rest timer
+        </button>
+      ` : ''}
     </div>
   `;
 }
@@ -2611,6 +2726,7 @@ function renderTimer(a) {
       <div class="t-suggest">Suggested: ${formatTime(total)} · ${isCompound(a.name) ? 'Compound' : (a.restSec <= 90 ? 'Isolation' : 'Medium')}</div>
       <div class="t-actions">
         <button class="btn" id="addTimeBtn">+30s</button>
+        <button class="btn" id="resetTimerBtn">Reset</button>
         <button class="btn btn-primary" id="nextSetBtn">Start Next Set</button>
       </div>
       <div class="t-progress" style="width: ${pct}%;"></div>
@@ -2668,19 +2784,94 @@ function bindExercise() {
   const finishSetBtn = document.getElementById('finishSetBtn');
   if (finishSetBtn) finishSetBtn.addEventListener('click', finishSet);
 
+  const resumeRestBtn = document.getElementById('resumeRestBtn');
+  if (resumeRestBtn) resumeRestBtn.addEventListener('click', () => {
+    // Re-arm the timer for the previous set — used when the user accidentally
+    // tapped "Start Next Set" and wants the rest period back.
+    startTimer(a.restSec);
+    render();
+  });
+
   document.querySelectorAll('[data-rmset]').forEach(btn => {
     btn.addEventListener('click', () => {
       const [kind, idx] = btn.dataset.rmset.split(':');
       const arr = kind === 'warmup' ? a.warmupSets : a.workingSets;
       arr.splice(+idx, 1);
+      // If we removed the set being edited, drop edit mode.
+      if (a.editingSet && a.editingSet.kind === kind && a.editingSet.idx === +idx) {
+        a.editingSet = null;
+        a.current = { weight: '', reps: '', note: '' };
+      }
       render();
     });
+  });
+
+  document.querySelectorAll('[data-editset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const [kind, idxStr] = btn.dataset.editset.split(':');
+      const idx = +idxStr;
+      const arr = kind === 'warmup' ? a.warmupSets : a.workingSets;
+      const target = arr[idx];
+      if (!target) return;
+      // Pause the rest timer (if running) so the input is visible. The user
+      // can hit "Resume rest" after saving if they want it back.
+      if (state.timer) { clearInterval(state.timer); state.timer = null; }
+      a.timer = null;
+      a.editingSet = { kind, idx };
+      a.current = {
+        weight: target.weight === '' ? '' : String(target.weight),
+        reps: String(target.reps),
+        note: target.note || ''
+      };
+      a.phase = kind;
+      render();
+    });
+  });
+
+  const cancelEdit = document.getElementById('cancelEditBtn');
+  if (cancelEdit) cancelEdit.addEventListener('click', () => {
+    a.editingSet = null;
+    a.current = { weight: '', reps: '', note: '' };
+    render();
+  });
+  const saveEdit = document.getElementById('saveEditBtn');
+  if (saveEdit) saveEdit.addEventListener('click', () => {
+    const wIn = document.getElementById('wIn');
+    const rIn = document.getElementById('rIn');
+    const nIn = document.getElementById('nIn');
+    let weight = (wIn.value || '').trim();
+    const reps = parseInt(rIn.value, 10);
+    const note = (nIn && nIn.value ? nIn.value : '').trim();
+    if (!reps || reps <= 0) { toast('Enter reps', 'error'); return; }
+    if (/^(bw|bodyweight)$/i.test(weight)) weight = '';
+    const { kind, idx } = a.editingSet;
+    const arr = kind === 'warmup' ? a.warmupSets : a.workingSets;
+    const orig = arr[idx];
+    if (!orig) { a.editingSet = null; render(); return; }
+    arr[idx] = { ...orig, weight, reps };
+    if (note) arr[idx].note = note; else delete arr[idx].note;
+    a.editingSet = null;
+    a.current = { weight: '', reps: '', note: '' };
+    toast('Set updated', 'success');
+    render();
   });
 
   const addTime = document.getElementById('addTimeBtn');
   if (addTime) addTime.addEventListener('click', () => {
     a.timer.total += 30;
     a.timer.remaining += 30;
+    a.timer.startedAt = Date.now() - (a.timer.total - a.timer.remaining) * 1000;
+    a.timer.alerted = false;
+    render();
+  });
+  const resetTimerBtn = document.getElementById('resetTimerBtn');
+  if (resetTimerBtn) resetTimerBtn.addEventListener('click', () => {
+    // Restart the rest period from scratch — used when the user accidentally
+    // pumped +30s, or when they want to take longer than originally planned.
+    a.timer.total = a.restSec;
+    a.timer.remaining = a.restSec;
+    a.timer.startedAt = Date.now();
+    a.timer.alerted = false;
     render();
   });
   const nextSet = document.getElementById('nextSetBtn');
@@ -2713,6 +2904,9 @@ function startTimer(sec) {
   a.timer = { total: sec, remaining: sec, startedAt: Date.now() };
   if (state.timer) clearInterval(state.timer);
   state.timer = setInterval(tickTimer, 250);
+  // Best-effort: ask for notification permission the first time a timer
+  // starts. If the user denies, we just rely on vibrate + beep (existing).
+  ensureNotificationPermission();
 }
 
 function tickTimer() {
@@ -2739,6 +2933,7 @@ function tickTimer() {
     a.timer.alerted = true;
     try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
     try { beep(); } catch (e) {}
+    showRestDoneNotification(a);
   }
 }
 
@@ -2895,17 +3090,65 @@ function refreshPicker() {
 // ============================================================
 // SAVE
 // ============================================================
+const MOTIVATION_QUOTES = [
+  { q: "Success isn't always about greatness. It's about consistency.", a: "Dwayne Johnson" },
+  { q: "Strength does not come from winning. Your struggles develop your strengths.", a: "Arnold Schwarzenegger" },
+  { q: "The body achieves what the mind believes.", a: "Napoleon Hill" },
+  { q: "Don't count the days, make the days count.", a: "Muhammad Ali" },
+  { q: "It's not about being the best. It's about being better than you were yesterday.", a: null },
+  { q: "Discipline is choosing between what you want now and what you want most.", a: "Abraham Lincoln" },
+  { q: "The pain you feel today will be the strength you feel tomorrow.", a: null },
+  { q: "If it doesn't challenge you, it doesn't change you.", a: "Fred DeVito" },
+  { q: "We do not rise to the level of our goals. We fall to the level of our systems.", a: "James Clear" },
+  { q: "The only bad workout is the one that didn't happen.", a: null },
+  { q: "Show up even when you don't feel like it. Especially then.", a: null },
+  { q: "Small steps every day.", a: null },
+  { q: "You don't have to be extreme. Just consistent.", a: null },
+  { q: "Hard work beats talent when talent doesn't work hard.", a: "Tim Notke" },
+  { q: "Take care of your body. It's the only place you have to live.", a: "Jim Rohn" },
+  { q: "What seems hard now will one day be your warmup.", a: null },
+  { q: "The clock is ticking. Are you becoming the person you want to be?", a: "Greg Plitt" },
+  { q: "Sweat is just fat crying.", a: null },
+  { q: "Progress, not perfection.", a: null },
+  { q: "The only way it gets easier is if you get stronger.", a: null }
+];
+
+function pickQuote() {
+  return MOTIVATION_QUOTES[Math.floor(Math.random() * MOTIVATION_QUOTES.length)];
+}
+
+function showMotivationQuote(sessionType) {
+  const q = pickQuote();
+  // Render a dismissable modal. Fades out when user taps "Done".
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-backdrop quote-backdrop';
+  wrap.innerHTML = `
+    <div class="quote-card" role="dialog" aria-label="Session complete">
+      <div class="quote-kicker">${escapeHtml(sessionType || 'Session')} complete</div>
+      <div class="quote-body">"${escapeHtml(q.q)}"</div>
+      ${q.a ? `<div class="quote-attrib">— ${escapeHtml(q.a)}</div>` : ''}
+      <button class="btn btn-primary btn-block btn-lg quote-close">Done</button>
+    </div>
+  `;
+  document.body.appendChild(wrap);
+  const close = () => wrap.remove();
+  wrap.querySelector('.quote-close').addEventListener('click', close);
+  wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+}
+
 async function saveSession() {
   const s = state.session;
   if (!s || s.entries.length === 0) { toast('Nothing to save', 'error'); return; }
   const btn = document.getElementById('finishSessionBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Saving…'; }
+  const sessionTypeForQuote = s.type;
   try {
-    await api('addSession', { date: s.date, sessionType: s.type, entries: s.entries });
-    toast('Session saved to "Web app" tab', 'success');
+    const res = await api('addSession', { date: s.date, sessionType: s.type, entries: s.entries });
+    toast('Session saved to ' + (res && res.tab ? '"' + res.tab + '"' : 'sheet'), 'success');
     state.session = null;
     state.view = 'home';
     await loadData();
+    showMotivationQuote(sessionTypeForQuote);
   } catch (err) {
     toast('Save failed: ' + err.message, 'error');
     if (btn) { btn.disabled = false; btn.textContent = 'Finish & Save Session'; }
@@ -3184,26 +3427,66 @@ function renderProgress() {
 
     <div class="ex-browse">
       <input id="progSearch" type="text" placeholder="Search ${escapeHtml(typeLabel.toLowerCase())} exercises…" value="${escapeHtml(state.progress.query)}" />
-      <div class="eb-list">
-        ${list.length === 0
-          ? `<div class="empty-state">No ${escapeHtml(typeLabel.toLowerCase())} exercises logged yet.</div>`
-          : list.map(({ex, hist, sessionCount}) => {
-              const latest = hist[hist.length - 1];
-              const latestMetric = latest && latest.metrics ? latest.metrics.est1RM + 'kg est.' : (latest && latest.cardio ? 'cardio' : '—');
-              return `
-                <button class="eb-item" data-exdetail="${escapeHtml(ex.name)}">
-                  <div style="flex:1; min-width:0;">
-                    <div class="eb-name">${escapeHtml(ex.name)}</div>
-                    <div class="eb-meta">${sessionCount} session${sessionCount !== 1 ? 's' : ''} · latest: ${escapeHtml(latestMetric)}</div>
-                  </div>
-                  <span style="color: var(--text-faint); font-size: 18px;">›</span>
-                </button>
-              `;
-            }).join('')
-        }
+      <div class="eb-list" id="ebList">
+        ${renderExBrowseList(list, typeLabel)}
       </div>
     </div>
   `;
+}
+
+// Just the list portion of the exercise browser. Extracted so the search
+// handler can re-render only the list (rather than the entire app), which
+// avoids the full-DOM-replace flicker that was making the input "twitch".
+function renderExBrowseList(list, typeLabel) {
+  if (list.length === 0) {
+    return `<div class="empty-state">No ${escapeHtml(typeLabel.toLowerCase())} exercises logged yet.</div>`;
+  }
+  return list.map(({ ex, hist, sessionCount }) => {
+    const latest = hist[hist.length - 1];
+    const latestMetric = latest && latest.metrics
+      ? latest.metrics.est1RM + 'kg est.'
+      : (latest && latest.cardio ? 'cardio' : '—');
+    return `
+      <button class="eb-item" data-exdetail="${escapeHtml(ex.name)}">
+        <div style="flex:1; min-width:0;">
+          <div class="eb-name">${escapeHtml(ex.name)}</div>
+          <div class="eb-meta">${sessionCount} session${sessionCount !== 1 ? 's' : ''} · latest: ${escapeHtml(latestMetric)}</div>
+        </div>
+        <span style="color: var(--text-faint); font-size: 18px;">›</span>
+      </button>
+    `;
+  }).join('');
+}
+
+// Recompute the filtered list and patch only #ebList — preserves search-input
+// focus, caret position, and IME composition.
+function refreshExBrowseList() {
+  const d = state.data || { exercises: [] };
+  const type = state.progress.typeFilter || 'push';
+  const q = (state.progress.query || '').toLowerCase();
+  const list = d.exercises
+    .map(e => {
+      const hist = fullHistoryFor(e.name);
+      return { ex: e, hist, sessionCount: hist.length, exType: classifyExercise(e.name) };
+    })
+    .filter(item => item.sessionCount > 0 && item.exType === type)
+    .filter(item => !q || item.ex.name.toLowerCase().includes(q))
+    .sort((a, b) => b.sessionCount - a.sessionCount);
+  const typeLabel = { push: 'Push', pull: 'Pull', legs: 'Legs' }[type] || 'Push';
+  const el = document.getElementById('ebList');
+  if (!el) return;
+  el.innerHTML = renderExBrowseList(list, typeLabel);
+  bindExBrowseItems();
+}
+
+function bindExBrowseItems() {
+  document.querySelectorAll('[data-exdetail]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.progress.selectedExercise = btn.dataset.exdetail;
+      state.view = 'exDetail';
+      render();
+    });
+  });
 }
 
 function bindProgress() {
@@ -3219,18 +3502,12 @@ function bindProgress() {
   if (search) {
     search.addEventListener('input', e => {
       state.progress.query = e.target.value;
-      render();
-      const s2 = document.getElementById('progSearch');
-      if (s2) { s2.focus(); const v = s2.value; s2.value = ''; s2.value = v; }
+      // Patch only the list — leaves the input element (and its focus/caret)
+      // untouched so typing feels smooth.
+      refreshExBrowseList();
     });
   }
-  document.querySelectorAll('[data-exdetail]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.progress.selectedExercise = btn.dataset.exdetail;
-      state.view = 'exDetail';
-      render();
-    });
-  });
+  bindExBrowseItems();
 }
 
 // ============================================================
@@ -3416,6 +3693,65 @@ function toast(msg, kind) {
   document.body.appendChild(el);
   setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; }, 2400);
   setTimeout(() => el.remove(), 2800);
+}
+
+// ============================================================
+// REST-TIMER NOTIFICATIONS
+// ============================================================
+// Ask once, lazily — only when the user first starts a rest timer. Avoids the
+// scary permission dialog on app launch.
+let _notifPermAsked = false;
+function ensureNotificationPermission() {
+  if (_notifPermAsked) return;
+  _notifPermAsked = true;
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    try { Notification.requestPermission(); } catch (e) {}
+  }
+}
+
+function showRestDoneNotification(active) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.ready.then(reg => {
+    reg.showNotification('Rest done', {
+      body: 'Time for the next set of ' + (active && active.name ? active.name : 'your exercise'),
+      icon: 'icon-192.png',
+      badge: 'icon-192.png',
+      tag: 'rest-done',
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [200, 100, 200],
+      actions: [
+        { action: 'next', title: 'Start next' },
+        { action: 'add30', title: '+30s' }
+      ]
+    }).catch(() => {});
+  }).catch(() => {});
+}
+
+// Receive timer-action messages from the SW (user tapped a notification action
+// while the page was backgrounded) and apply them to the in-memory state.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    const msg = e.data || {};
+    if (msg.type !== 'timer-action') return;
+    handleTimerAction(msg.action);
+  });
+}
+function handleTimerAction(action) {
+  const a = state.active;
+  if (!a) return;
+  if (action === 'add30' && a.timer) {
+    a.timer.total += 30;
+    a.timer.remaining += 30;
+    a.timer.startedAt = Date.now() - (a.timer.total - a.timer.remaining) * 1000;
+    a.timer.alerted = false;
+    render();
+  } else if (action === 'next' || action === 'open') {
+    if (a.timer) { stopTimer(); }
+    render();
+  }
 }
 
 // ============================================================
