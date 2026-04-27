@@ -366,6 +366,60 @@
   .run-hint .mono {
     font-family: 'JetBrains Mono', monospace; color: var(--text-dim);
   }
+  /* Structured run-log inputs use the existing input-grid layout. The preview
+     line below the form mirrors the eventual setsString so the user sees what
+     will land in the sheet before tapping Save. */
+  .run-entry .input-grid input,
+  .run-entry input[type="text"] {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .run-preview {
+    margin-top: 16px; padding: 12px 14px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .run-preview .rp-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-faint); font-weight: 700;
+  }
+  .run-preview .rp-value {
+    color: var(--accent); font-size: 13px;
+    word-break: break-word;
+  }
+
+  /* Average pace readout — shown live for interval workouts. */
+  .avg-pace-row {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .avg-pace-row .avg-pace-value {
+    color: var(--accent); font-size: 16px; font-weight: 500;
+  }
+
+  /* Training-effect chips — auto-derived from run type and pace. */
+  .run-effects { margin-top: 10px; }
+  .run-effects:empty { display: none; }
+  .effects-row {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .effects-chips {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .effect-chip {
+    font-size: 11px; padding: 4px 10px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+    border: 1px solid;
+  }
+  .effect-chip.tone-vo2      { color: #ff5a9e; border-color: rgba(255,90,158,0.4); background: rgba(255,90,158,0.10); }
+  .effect-chip.tone-speed    { color: #ff5a5a; border-color: rgba(255,90,90,0.45);  background: rgba(255,90,90,0.10); }
+  .effect-chip.tone-tempo    { color: #ff8c5a; border-color: rgba(255,140,90,0.4);  background: rgba(255,140,90,0.10); }
+  .effect-chip.tone-endurance{ color: #58a6ff; border-color: rgba(88,166,255,0.4);  background: rgba(88,166,255,0.10); }
+  .effect-chip.tone-base     { color: #e8ff3a; border-color: rgba(232,255,58,0.4);  background: rgba(232,255,58,0.10); }
+  .effect-chip.tone-recovery { color: var(--text-dim); border-color: var(--border); background: var(--surface-2); }
 
 
   .top-bar h1 {
@@ -2292,8 +2346,17 @@ function startSession(type) {
     : todayFormatted();
 
   if (type === 'cardio') {
-    // Run log: pick interval/long/easy, then type freely
-    state.runLog = { phase: 'pickType', runType: null, text: '', saving: false, date: sessionDate };
+    // Run log: pick interval/long/easy, then enter structured details.
+    state.runLog = {
+      phase: 'pickType', runType: null,
+      // Common fields
+      distance: '', acc: '', notes: '',
+      // Non-interval pace
+      pace: '',
+      // Interval-only fields
+      sets: '', highestPace: '', lowestPace: '',
+      saving: false, date: sessionDate
+    };
     state.view = 'runLog';
     render();
     return;
@@ -2345,14 +2408,84 @@ function renderRunLog() {
   // phase === 'entry'
   const rt = RUN_TYPES.find(t => t.id === r.runType);
   const label = rt ? rt.label : 'Run';
+  const preview = composeRunSetsString(label, r);
+  const effects = classifyRunEffects(r);
+  const isInterval = r.runType === 'interval';
+
+  const intervalAvg = isInterval ? computeAvgPace(r.highestPace, r.lowestPace) : '';
+
+  const fields = isInterval ? `
+    <div class="input-grid">
+      <div>
+        <label class="label" for="runDistIn">Total distance (km)</label>
+        <input id="runDistIn" type="text" inputmode="decimal" placeholder="4"
+               value="${escapeHtml(r.distance || '')}" autocomplete="off" />
+      </div>
+      <div>
+        <label class="label" for="runSetsIn">Sets</label>
+        <input id="runSetsIn" type="text" inputmode="numeric" placeholder="6"
+               value="${escapeHtml(r.sets || '')}" autocomplete="off" />
+      </div>
+    </div>
+    <div class="input-grid" style="margin-top: 12px;">
+      <div>
+        <label class="label" for="runHighIn">Highest pace</label>
+        <input id="runHighIn" type="text" inputmode="decimal" placeholder="5.00 (fastest)"
+               value="${escapeHtml(r.highestPace || '')}" autocomplete="off" />
+      </div>
+      <div>
+        <label class="label" for="runLowIn">Lowest pace</label>
+        <input id="runLowIn" type="text" inputmode="decimal" placeholder="9.00 (slowest)"
+               value="${escapeHtml(r.lowestPace || '')}" autocomplete="off" />
+      </div>
+    </div>
+    <div class="avg-pace-row">
+      <span class="rp-label">Average pace</span>
+      <span class="avg-pace-value mono" id="runAvgPace">${escapeHtml(intervalAvg || '—')}</span>
+    </div>
+    <div style="margin-top: 12px;">
+      <label class="label" for="runAccIn">Acc. distance (km)</label>
+      <input id="runAccIn" type="text" inputmode="decimal" placeholder="6.00"
+             value="${escapeHtml(r.acc || '')}" autocomplete="off" />
+    </div>
+  ` : `
+    <div class="input-grid">
+      <div>
+        <label class="label" for="runDistIn">Run distance (km)</label>
+        <input id="runDistIn" type="text" inputmode="decimal" placeholder="3"
+               value="${escapeHtml(r.distance || '')}" autocomplete="off" />
+      </div>
+      <div>
+        <label class="label" for="runAccIn">Acc. distance (km)</label>
+        <input id="runAccIn" type="text" inputmode="decimal" placeholder="5.51"
+               value="${escapeHtml(r.acc || '')}" autocomplete="off" />
+      </div>
+    </div>
+    <div style="margin-top: 12px;">
+      <label class="label" for="runPaceIn">Pace · min.sec per km</label>
+      <input id="runPaceIn" type="text" inputmode="decimal" placeholder="7.32"
+             value="${escapeHtml(r.pace || '')}" autocomplete="off" />
+    </div>
+  `;
+
   return `
     <div class="hero">
       <div class="kicker">${escapeHtml(label)} · ${escapeHtml(r.date || todayFormatted())}</div>
     </div>
     <div class="run-entry">
-      <label class="label" for="runText">How did it go?</label>
-      <textarea id="runText" placeholder="e.g. 5km · 28:30 · pace 5:42&#10;or: 6x800m @ 3:15, 90s rest&#10;or: 10km easy, felt good" rows="8">${escapeHtml(r.text || '')}</textarea>
-      <div class="run-hint">Type freely — will save as <span class="mono">"${escapeHtml(label)} · your text"</span></div>
+      ${fields}
+      <div style="margin-top: 12px;">
+        <label class="label" for="runNotesIn">Notes (optional)</label>
+        <input id="runNotesIn" type="text" placeholder="e.g. felt strong, hilly route"
+               value="${escapeHtml(r.notes || '')}" autocomplete="off" />
+      </div>
+      <div class="run-preview">
+        <span class="rp-label">Will save as</span>
+        <span class="rp-value mono" id="runPreview">${escapeHtml(preview || '—')}</span>
+      </div>
+      <div class="run-effects" id="runEffects">
+        ${renderRunEffectChips(effects)}
+      </div>
     </div>
     <div class="fab no-tabs">
       <button class="btn btn-primary btn-block btn-lg" id="saveRunBtn" ${r.saving ? 'disabled' : ''}>
@@ -2360,6 +2493,117 @@ function renderRunLog() {
       </button>
     </div>
   `;
+}
+
+// ---- run helpers ----
+// "M.SS" or "M:SS" or just "M" → seconds. Returns null if unparseable.
+function parsePaceToSec(p) {
+  if (p == null) return null;
+  const s = String(p).trim();
+  if (!s) return null;
+  const m = s.match(/^(\d+)(?:[.:](\d{1,2}))?$/);
+  if (!m) return null;
+  const min = parseInt(m[1], 10);
+  const sec = parseInt(m[2] || '0', 10);
+  if (isNaN(min) || isNaN(sec)) return null;
+  return min * 60 + sec;
+}
+function paceSecToString(totalSec) {
+  if (totalSec == null || isNaN(totalSec) || totalSec < 0) return '';
+  const min = Math.floor(totalSec / 60);
+  const sec = Math.round(totalSec - min * 60);
+  return min + '.' + String(sec).padStart(2, '0');
+}
+function computeAvgPace(high, low) {
+  const a = parsePaceToSec(high);
+  const b = parsePaceToSec(low);
+  if (a == null && b == null) return '';
+  if (a == null) return paceSecToString(b);
+  if (b == null) return paceSecToString(a);
+  return paceSecToString(Math.round((a + b) / 2));
+}
+
+// Auto-classify a run into one or more training-effect tags so the user gets
+// quick feedback on what the workout developed. Heuristic, not a substitute
+// for HR-zone training, but reasonable for pace-based logging.
+function classifyRunEffects(r) {
+  if (!r) return [];
+  const effects = [];
+  const distanceK = parseFloat(r.distance) || 0;
+
+  if (r.runType === 'interval') {
+    const fastSec = parsePaceToSec(r.highestPace);
+    if (fastSec == null) {
+      effects.push({ name: 'Speed work', tone: 'speed' });
+    } else if (fastSec < 4.5 * 60) {
+      effects.push({ name: 'Anaerobic', tone: 'speed' });
+      effects.push({ name: 'VO2 max', tone: 'vo2' });
+    } else if (fastSec < 5.5 * 60) {
+      effects.push({ name: 'VO2 max', tone: 'vo2' });
+    } else {
+      effects.push({ name: 'Tempo', tone: 'tempo' });
+    }
+  } else if (r.runType === 'long' || distanceK >= 10) {
+    effects.push({ name: 'Endurance', tone: 'endurance' });
+    const avgSec = parsePaceToSec(r.pace);
+    if (avgSec != null && avgSec < 6 * 60) effects.push({ name: 'Lactate threshold', tone: 'tempo' });
+    else effects.push({ name: 'Aerobic base', tone: 'base' });
+  } else if (r.runType === 'easy') {
+    const avgSec = parsePaceToSec(r.pace);
+    if (avgSec != null && avgSec >= 7.5 * 60) effects.push({ name: 'Recovery', tone: 'recovery' });
+    else effects.push({ name: 'Aerobic base', tone: 'base' });
+  } else {
+    effects.push({ name: 'Tempo', tone: 'tempo' });
+  }
+  return effects;
+}
+
+function renderRunEffectChips(effects) {
+  if (!effects || effects.length === 0) return '';
+  return `
+    <div class="effects-row">
+      <span class="rp-label">Trains</span>
+      <div class="effects-chips">
+        ${effects.map(e => `<span class="effect-chip tone-${e.tone}">${escapeHtml(e.name)}</span>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// Build the sets-string for a run from the structured fields. Returns ''
+// when nothing meaningful is filled in (which is what blocks Save).
+function composeRunSetsString(label, r) {
+  const isInterval = r && r.runType === 'interval';
+  const acc = (r && r.acc ? String(r.acc) : '').trim();
+  const notes = (r && r.notes ? String(r.notes) : '').trim();
+  const effects = classifyRunEffects(r);
+  const effectTag = effects.length ? ' (' + effects.map(e => e.name).join(', ') + ')' : '';
+
+  let body;
+  if (isInterval) {
+    const distance = (r.distance || '').trim();
+    if (!distance) return '';
+    const sets = (r.sets || '').trim();
+    const high = (r.highestPace || '').trim();
+    const low = (r.lowestPace || '').trim();
+    const avg = computeAvgPace(high, low);
+    body = distance + 'k';
+    if (sets) body += ' × ' + sets + ' sets';
+    if (high && low) body += ', @' + high + '-' + low;
+    else if (high) body += ', @' + high;
+    else if (low) body += ', @' + low;
+    if (avg && high && low) body += ' (avg ' + avg + ')';
+    if (acc) body += ', acc. ' + acc + 'k';
+  } else {
+    const distance = (r.distance || '').trim();
+    if (!distance) return '';
+    const pace = (r.pace || '').trim();
+    body = distance + 'k';
+    if (pace) body += ' @' + pace;
+    if (acc) body += ', acc. ' + acc + 'k';
+  }
+  if (notes) body += ' · ' + notes;
+  return label + ' · ' + body + effectTag;
 }
 
 function bindRunLog() {
@@ -2387,18 +2631,40 @@ function bindRunLog() {
       state.runLog.runType = btn.dataset.runType;
       state.runLog.phase = 'entry';
       render();
-      // Autofocus the textarea
+      // Autofocus the distance field — first thing the user enters.
       setTimeout(() => {
-        const ta = document.getElementById('runText');
-        if (ta) ta.focus();
+        const el = document.getElementById('runDistIn');
+        if (el) el.focus();
       }, 50);
     });
   });
 
-  const ta = document.getElementById('runText');
-  if (ta) {
-    ta.addEventListener('input', e => { state.runLog.text = e.target.value; });
-  }
+  // Wire each structured field. Updates state in place + refreshes the
+  // preview line, average pace (interval mode), and effect chips — no full
+  // re-render so the keyboard / focus stays put.
+  const refreshDerived = () => {
+    const r = state.runLog;
+    const rt = RUN_TYPES.find(t => t.id === r.runType);
+    const label = rt ? rt.label : 'Run';
+    const previewEl = document.getElementById('runPreview');
+    if (previewEl) previewEl.textContent = composeRunSetsString(label, r) || '—';
+    const avgEl = document.getElementById('runAvgPace');
+    if (avgEl) avgEl.textContent = computeAvgPace(r.highestPace, r.lowestPace) || '—';
+    const effectsEl = document.getElementById('runEffects');
+    if (effectsEl) effectsEl.innerHTML = renderRunEffectChips(classifyRunEffects(r));
+  };
+
+  const bindField = (id, key) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', e => { state.runLog[key] = e.target.value; refreshDerived(); });
+  };
+  bindField('runDistIn', 'distance');
+  bindField('runPaceIn', 'pace');
+  bindField('runAccIn', 'acc');
+  bindField('runNotesIn', 'notes');
+  bindField('runSetsIn', 'sets');
+  bindField('runHighIn', 'highestPace');
+  bindField('runLowIn', 'lowestPace');
 
   const saveBtn = document.getElementById('saveRunBtn');
   if (saveBtn) saveBtn.addEventListener('click', saveRunLog);
@@ -2407,12 +2673,15 @@ function bindRunLog() {
 async function saveRunLog() {
   const r = state.runLog;
   if (!r || !r.runType) { toast('Pick a run type first', 'error'); return; }
-  const text = (r.text || '').trim();
-  if (!text) { toast('Type your run details first', 'error'); return; }
+  if (!(r.distance || '').trim()) {
+    toast(r.runType === 'interval' ? 'Enter total distance' : 'Enter run distance', 'error');
+    return;
+  }
 
   const rt = RUN_TYPES.find(t => t.id === r.runType);
   const label = rt ? rt.label : 'Run';
-  const setsString = `${label} · ${text}`;
+  const setsString = composeRunSetsString(label, r);
+  if (!setsString) { toast('Enter run distance', 'error'); return; }
 
   r.saving = true; render();
   try {
