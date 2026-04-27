@@ -477,14 +477,23 @@
     text-transform: uppercase; letter-spacing: -0.01em;
   }
   .session-meta-bar .st-date { color: var(--accent); }
-  .session-meta-bar .st-date-field {
+
+  /* Start-date pill on Home (sits in the Start Session header). Tap opens
+     the system date picker. Acid-yellow text when a past date is chosen so
+     it's obvious the next session won't be filed under today. */
+  .start-date-pill {
     position: relative; display: inline-flex; align-items: center; gap: 6px;
-    cursor: pointer;
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    font-size: 11px; line-height: 1; cursor: pointer;
+    color: var(--text-faint);
   }
-  .session-meta-bar .st-date-edit {
-    color: var(--text-faint); font-size: 12px; padding-left: 4px;
-  }
-  .session-meta-bar .st-date-input {
+  .start-date-pill .sd-prefix { font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .start-date-pill .sd-value { font-size: 12px; color: var(--text); font-weight: 500; }
+  .start-date-pill .sd-icon { font-size: 11px; color: var(--text-faint); }
+  .start-date-pill.past { border-color: var(--accent); }
+  .start-date-pill.past .sd-value { color: var(--accent); }
+  .start-date-pill .sd-input {
     position: absolute; inset: 0; opacity: 0; padding: 0; border: 0;
     background: transparent; cursor: pointer; width: 100%; height: 100%;
     color-scheme: dark;
@@ -1023,6 +1032,10 @@ let state = {
 
   // Running tracker metric toggle on Progress tab: 'acc' or 'run'
   runningMetric: 'acc',
+
+  // Picked date for the next session to be started. Empty = today.
+  // Set on Home before tapping a type card; carried into state.session.date.
+  startDateIso: '',
 
   // Timer singleton
   timer: null
@@ -2135,7 +2148,7 @@ function renderHome() {
 
     <div class="section-title">
       <h3>Start Session</h3>
-      <span class="meta">pick one</span>
+      ${renderStartDatePicker()}
     </div>
     <div class="type-grid">
       ${renderTypeCard('push', 'Push', 'chest · shoulders · triceps', '🏋️‍♂️')}
@@ -2221,10 +2234,34 @@ function renderTypeCard(id, name, subtitle, iconSvg) {
   `;
 }
 
+// "Logging for · April 22 ✎" pill that opens a native date picker. Sits in
+// the Start Session header. The chosen ISO date drives the next session.
+function renderStartDatePicker() {
+  const iso = state.startDateIso || todayIso();
+  const todayStr = todayIso();
+  const isToday = iso === todayStr;
+  const display = isoToMonthDay(iso) || todayFormatted();
+  return `
+    <label class="start-date-pill ${isToday ? 'today' : 'past'}" for="startDateIn"
+           aria-label="Pick session date">
+      <span class="sd-prefix">Logging for</span>
+      <span class="sd-value mono">${escapeHtml(display)}</span>
+      <span class="sd-icon">✎</span>
+      <input id="startDateIn" class="sd-input" type="date"
+             value="${escapeHtml(iso)}" max="${escapeHtml(todayStr)}" />
+    </label>
+  `;
+}
+
 function bindHome() {
   document.getElementById('settingsBtn').addEventListener('click', openSettings);
   document.querySelectorAll('[data-type]').forEach(btn => {
     btn.addEventListener('click', () => startSession(btn.dataset.type));
+  });
+  const startDateIn = document.getElementById('startDateIn');
+  if (startDateIn) startDateIn.addEventListener('change', e => {
+    state.startDateIso = e.target.value || '';
+    render();
   });
   // Calendar navigation
   const prev = document.getElementById('calPrev');
@@ -2249,9 +2286,14 @@ function bindHome() {
 }
 
 function startSession(type) {
+  // Resolve the date from the Home picker; fall back to today.
+  const sessionDate = state.startDateIso
+    ? (isoToMonthDay(state.startDateIso) || todayFormatted())
+    : todayFormatted();
+
   if (type === 'cardio') {
     // Run log: pick interval/long/easy, then type freely
-    state.runLog = { phase: 'pickType', runType: null, text: '', saving: false };
+    state.runLog = { phase: 'pickType', runType: null, text: '', saving: false, date: sessionDate };
     state.view = 'runLog';
     render();
     return;
@@ -2260,7 +2302,7 @@ function startSession(type) {
   state.session = {
     type: typeName,
     typeKey: type,
-    date: todayFormatted(),
+    date: sessionDate,
     entries: [],
     lastExercise: null
   };
@@ -2284,7 +2326,7 @@ function renderRunLog() {
   if (r.phase === 'pickType') {
     return `
       <div class="hero">
-        <div class="kicker">Run · ${escapeHtml(todayFormatted())}</div>
+        <div class="kicker">Run · ${escapeHtml(r.date || todayFormatted())}</div>
         <div class="count mono">🏃</div>
         <div class="sub">pick a run type</div>
       </div>
@@ -2305,7 +2347,7 @@ function renderRunLog() {
   const label = rt ? rt.label : 'Run';
   return `
     <div class="hero">
-      <div class="kicker">${escapeHtml(label)} · ${escapeHtml(todayFormatted())}</div>
+      <div class="kicker">${escapeHtml(label)} · ${escapeHtml(r.date || todayFormatted())}</div>
     </div>
     <div class="run-entry">
       <label class="label" for="runText">How did it go?</label>
@@ -2374,12 +2416,12 @@ async function saveRunLog() {
 
   r.saving = true; render();
   try {
-    await api('addSession', {
-      date: todayFormatted(),
+    const res = await api('addSession', {
+      date: r.date || todayFormatted(),
       sessionType: 'Cardio',
       entries: [{ exercise: 'Run', sets: setsString, notes: '' }]
     });
-    toast('Run saved', 'success');
+    toast('Run saved to ' + (res && res.tab ? '"' + res.tab + '"' : 'sheet'), 'success');
     state.runLog = null;
     state.view = 'home';
     await loadData();
@@ -2412,13 +2454,7 @@ function renderSession() {
       </div>
       <div style="text-align:right;">
         <div class="st-label">Date</div>
-        <label class="st-date-field" for="sessDateIn" aria-label="Change session date">
-          <span class="st-value st-date mono">${escapeHtml(s.date)}</span>
-          <span class="st-date-edit">✎</span>
-          <input id="sessDateIn" class="st-date-input" type="date"
-                 value="${escapeHtml(monthDayToIso(s.date) || todayIso())}"
-                 max="${todayIso()}" />
-        </label>
+        <div class="st-value st-date mono">${escapeHtml(s.date)}</div>
       </div>
     </div>
 
@@ -2493,15 +2529,6 @@ function bindSession() {
   });
   const finish = document.getElementById('finishSessionBtn');
   if (finish) finish.addEventListener('click', saveSession);
-
-  const sessDate = document.getElementById('sessDateIn');
-  if (sessDate) sessDate.addEventListener('change', e => {
-    const md = isoToMonthDay(e.target.value);
-    if (md) {
-      state.session.date = md;
-      render();
-    }
-  });
 }
 
 // "April 22" -> "2026-04-22" (using parseSheetDate for the year inference).
@@ -3716,8 +3743,12 @@ function showRestDoneNotification(active) {
   navigator.serviceWorker.ready.then(reg => {
     reg.showNotification('Rest done', {
       body: 'Time for the next set of ' + (active && active.name ? active.name : 'your exercise'),
-      icon: 'icon-192.png',
-      badge: 'icon-192.png',
+      // Full-color "信 on black" tile shown in the expanded notification.
+      icon: 'icon-notif.png',
+      // Transparent silhouette for the Android status bar — Android tints the
+      // opaque pixels with the system color, so passing a fully-opaque image
+      // (like the regular app icon) renders as a blank white square.
+      badge: 'icon-badge.png',
       tag: 'rest-done',
       renotify: true,
       requireInteraction: true,

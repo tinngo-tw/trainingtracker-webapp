@@ -1,15 +1,20 @@
 /**
- * Minimal service worker — exists to satisfy Chrome's install criteria
- * and to cache the app shell so Training Logger opens even on a bad connection.
+ * Service worker — caches the app shell, handles rest-timer notifications.
  *
  * The app talks to a Google Apps Script backend for all data (bootstrap,
  * addSession). We deliberately don't cache those API responses: weightlifting
  * data is the source of truth on the sheet, not in the browser, so we always
  * go to the network for it. The shell (HTML, manifest, icons) caches normally
  * so launching the installed app feels instant.
+ *
+ * For rest-timer notifications: the page calls
+ * registration.showNotification() when the timer reaches 0. When the user
+ * taps an action (Start next / +30s), this SW receives the click, focuses the
+ * existing window, and posts a {type:'timer-action', action} message to it so
+ * the page can advance the in-memory state.
  */
 
-const VERSION = 'v1';
+const VERSION = 'v3';
 const CACHE = 'training-logger-' + VERSION;
 
 const SHELL = [
@@ -19,7 +24,9 @@ const SHELL = [
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-192.png',
-  './icon-maskable-512.png'
+  './icon-maskable-512.png',
+  './icon-notif.png',
+  './icon-badge.png'
 ];
 
 self.addEventListener('install', (e) => {
@@ -76,4 +83,24 @@ self.addEventListener('fetch', (e) => {
       }).catch(() => hit)
     )
   );
+});
+
+// Rest-timer notification interactions.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const action = event.action || 'open';
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    let client = all.find(c => c.url.includes(self.registration.scope)) || all[0];
+    if (client) {
+      try { await client.focus(); } catch (e) {}
+      try { client.postMessage({ type: 'timer-action', action: action }); } catch (e) {}
+    } else {
+      // No open window — open one. The page will pick up where it left off
+      // (state is in localStorage'd endpoint + transient memory). The action
+      // can't be re-applied without state, but this at least brings the user
+      // back to the app.
+      await self.clients.openWindow('./');
+    }
+  })());
 });
