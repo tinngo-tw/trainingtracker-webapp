@@ -3311,33 +3311,40 @@ function renderPicker() {
         <div class="modal-body">
           <input id="pickerSearch" type="text" placeholder="Search or add new…" value="${escapeHtml(p.query)}" autofocus />
           <div style="height: 10px;"></div>
-          ${customAvail ? `
-            <button class="ex-item" data-custom="${escapeHtml(p.query.trim())}" style="border-color: var(--accent); margin-bottom: 6px;">
-              <span class="ex-name">+ Add "${escapeHtml(p.query.trim())}" as new exercise</span>
-            </button>
-          ` : ''}
-          ${list.length === 0
-            ? `<div class="empty-state">No matches. Type a name above to add it.</div>`
-            : list.slice(0, 60).map(e => {
-                const last = e.history && e.history[0];
-                const starred = e._nextScore > 0;
-                return `
-                  <button class="ex-item" data-pick="${escapeHtml(e.name)}">
-                    <div style="flex:1; min-width:0;">
-                      <div style="display:flex; align-items:center; gap: 6px;">
-                        ${starred ? '<span class="ex-badge" style="color: var(--accent); border-color: var(--accent);">Next</span>' : ''}
-                        <span class="ex-name">${escapeHtml(e.name)}</span>
-                      </div>
-                    </div>
-                    ${last ? `<span class="ex-last">${escapeHtml(last.sets)}</span>` : ''}
-                  </button>
-                `;
-              }).join('')
-          }
+          <div id="pickerList">${renderPickerList(list, p.query, customAvail)}</div>
         </div>
       </div>
     </div>
   `;
+}
+
+// List portion of the picker. Pulled out so the search-input handler can
+// patch this section in place without disturbing the input element — fixes
+// the focus-loss / IME-cancellation that made typing feel jumpy.
+function renderPickerList(list, query, customAvail) {
+  const customRow = customAvail ? `
+    <button class="ex-item" data-custom="${escapeHtml(query.trim())}" style="border-color: var(--accent); margin-bottom: 6px;">
+      <span class="ex-name">+ Add "${escapeHtml(query.trim())}" as new exercise</span>
+    </button>
+  ` : '';
+  if (list.length === 0) {
+    return customRow + `<div class="empty-state">No matches. Type a name above to add it.</div>`;
+  }
+  return customRow + list.slice(0, 60).map(e => {
+    const last = e.history && e.history[0];
+    const starred = e._nextScore > 0;
+    return `
+      <button class="ex-item" data-pick="${escapeHtml(e.name)}">
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap: 6px;">
+            ${starred ? '<span class="ex-badge" style="color: var(--accent); border-color: var(--accent);">Next</span>' : ''}
+            <span class="ex-name">${escapeHtml(e.name)}</span>
+          </div>
+        </div>
+        ${last ? `<span class="ex-last">${escapeHtml(last.sets)}</span>` : ''}
+      </button>
+    `;
+  }).join('');
 }
 
 function bindPicker() {
@@ -3354,8 +3361,22 @@ function bindPicker() {
   const search = document.getElementById('pickerSearch');
   search.addEventListener('input', e => {
     state.picker.query = e.target.value;
-    refreshPicker();
+    // Patch only the list — leave the input element (and its focus / IME
+    // composition) untouched.
+    refreshPickerList();
   });
+  bindPickerItems();
+}
+
+// (Re)bind the click handlers for picker rows + the "Add new" custom row.
+// Called after the list is rebuilt so newly-rendered items work.
+function bindPickerItems() {
+  const close = () => {
+    state.picker.open = false;
+    state.picker.query = '';
+    const el = document.getElementById('pickerBackdrop');
+    if (el) el.remove();
+  };
   document.querySelectorAll('[data-pick]').forEach(btn => {
     btn.addEventListener('click', () => {
       const name = btn.dataset.pick;
@@ -3374,13 +3395,21 @@ function bindPicker() {
   });
 }
 
-function refreshPicker() {
-  const el = document.getElementById('pickerBackdrop');
-  if (el) el.remove();
-  document.body.insertAdjacentHTML('beforeend', renderPicker());
-  bindPicker();
-  const s = document.getElementById('pickerSearch');
-  if (s) { s.focus(); const v = s.value; s.value = ''; s.value = v; }
+function refreshPickerList() {
+  const p = state.picker;
+  if (!p) return;
+  const exclude = state.session ? state.session.entries.map(e => e.exercise) : [];
+  let list = rankExercises(p.forType, exclude, p.afterExercise);
+  if (p.query) {
+    const q = p.query.toLowerCase();
+    list = list.filter(e => e.name.toLowerCase().includes(q));
+  }
+  const customAvail = p.query.trim().length > 0 &&
+    !list.some(e => e.name.toLowerCase() === p.query.trim().toLowerCase());
+  const el = document.getElementById('pickerList');
+  if (!el) return;
+  el.innerHTML = renderPickerList(list, p.query, customAvail);
+  bindPickerItems();
 }
 
 // ============================================================
