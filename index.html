@@ -938,6 +938,28 @@
   .modal-head h3 { margin: 0; font-size: 16px; }
   .modal-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
 
+  /* Picker modal — anchored to TOP instead of bottom so the search input
+     lands near the top of the screen and results stay visible above the
+     soft keyboard. Uses dvh so the modal shrinks naturally when the
+     keyboard is shown. */
+  #pickerBackdrop { align-items: flex-start; }
+  #pickerBackdrop .modal {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    max-height: 92dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: 0;
+    animation: slideDown .25s cubic-bezier(.2,.8,.2,1);
+  }
+  /* Drag-handle visual cue lives at the bottom for a top sheet. */
+  #pickerBackdrop .modal-handle { order: 99; margin: 4px auto 10px; }
+  @keyframes slideDown {
+    from { transform: translateY(-100%); }
+    to   { transform: translateY(0); }
+  }
+
   .ex-item {
     width: 100%; text-align: left;
     padding: 12px 14px; border-radius: var(--radius-sm);
