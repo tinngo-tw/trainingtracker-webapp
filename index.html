@@ -15,6 +15,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<!-- SortableJS for drag-to-reorder on the Plan view (long-press to start drag on touch). -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
 <style>
   :root {
     --bg: #0a0a0a;
@@ -862,6 +864,150 @@
   .chart-svg .pt { fill: var(--accent); }
   .chart-svg .pt-last { fill: var(--accent); stroke: var(--accent-ink); stroke-width: 2; }
 
+  /* ===== TODAY'S PLAN — SUGGESTION CARD WRAPPER ===== */
+  .suggestion-wrap { margin-bottom: 18px; }
+  .sg-day-tabs {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 4px; gap: 2px;
+    margin-bottom: 8px;
+  }
+  .sg-day-tab {
+    padding: 9px 8px; border-radius: 8px;
+    background: transparent; border: 0;
+    color: var(--text-dim); font-weight: 600; font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    cursor: pointer;
+  }
+  .sg-day-tab.on { background: var(--surface-3); color: var(--text); }
+  .sg-empty {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px;
+    color: var(--text-faint); font-size: 13px; text-align: center;
+  }
+  .sg-full-plan-link {
+    display: block; width: 100%; margin-top: 10px;
+    padding: 10px; border-radius: var(--radius-sm);
+    background: transparent; border: 1px dashed var(--border);
+    color: var(--text-dim); font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  .sg-full-plan-link:active { color: var(--accent); border-color: var(--accent); }
+
+  /* ===== FULL PLAN VIEW ===== */
+  .plan-view-tabs {
+    display: grid; grid-template-columns: 1fr 1fr;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px; gap: 2px; margin-bottom: 16px;
+  }
+  .plan-view-tabs button {
+    padding: 10px; border-radius: 999px; border: 0; background: transparent;
+    color: var(--text-dim); font-weight: 600; font-size: 13px;
+    cursor: pointer;
+  }
+  .plan-view-tabs button.on { background: var(--accent); color: var(--accent-ink); }
+
+  .plan-week {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 14px 10px;
+    margin-bottom: 14px;
+  }
+  .pw-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 10px; margin-bottom: 10px;
+  }
+  .pw-title {
+    font-family: 'Archivo Black', sans-serif; font-size: 14px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .pw-range { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  .pw-goal {
+    font-size: 11px; color: var(--accent); font-weight: 500;
+    text-align: right; line-height: 1.4;
+  }
+  .pw-list { list-style: none; padding: 0; margin: 0; }
+  .pw-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 8px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    margin-bottom: 6px;
+    cursor: grab;
+    border-left-width: 3px;
+  }
+  .pw-item:active { cursor: grabbing; }
+  .pw-item.push  { border-left-color: var(--orange); }
+  .pw-item.pull  { border-left-color: var(--blue); }
+  .pw-item.legs  { border-left-color: var(--accent); }
+  .pw-item.easy,
+  .pw-item.long,
+  .pw-item.tempo,
+  .pw-item.interval,
+  .pw-item.race { border-left-color: var(--pink); }
+  .pw-item.rest { border-left-color: var(--text-faint); opacity: 0.7; }
+  .pw-item.is-today { box-shadow: inset 0 0 0 1px var(--accent); }
+  .pw-item.status-done .pw-session,
+  .pw-item.status-skipped .pw-session,
+  .pw-item.status-postponed .pw-session { opacity: 0.5; }
+  .pw-grip {
+    color: var(--text-faint); font-size: 14px; padding: 0 4px;
+    user-select: none;
+  }
+  .pw-day {
+    width: 32px; font-size: 11px; color: var(--text-faint);
+    text-align: center; font-weight: 600;
+  }
+  .pw-icon { font-size: 22px; line-height: 1; }
+  .pw-text { flex: 1; min-width: 0; }
+  .pw-session { font-size: 13px; font-weight: 600; }
+  .pw-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .pw-badge {
+    font-size: 11px; padding: 2px 7px; border-radius: 999px;
+    border: 1px solid; font-weight: 700;
+  }
+  .pw-badge.status-done      { color: var(--accent);     border-color: rgba(232,255,58,0.4); background: rgba(232,255,58,0.1); }
+  .pw-badge.status-skipped   { color: var(--text-faint); border-color: var(--border-bright); background: var(--surface-2); }
+  .pw-badge.status-postponed { color: var(--warn);       border-color: rgba(255,176,32,0.4); background: rgba(255,176,32,0.1); }
+  .pw-ghost { opacity: 0.4; }
+  .pw-chosen { background: var(--surface-3); }
+
+  /* Daily view */
+  .pd-week { margin-bottom: 18px; }
+  .pd-wk-head {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-faint); font-weight: 700;
+    padding: 6px 4px; border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .pd-wk-head .mono { color: var(--text-dim); font-weight: 500; text-transform: none; }
+  .pd-rows { display: flex; flex-direction: column; gap: 4px; }
+  .pd-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px; border-radius: var(--radius-sm);
+    background: var(--surface); border: 1px solid var(--border);
+    border-left-width: 3px;
+  }
+  .pd-row.push { border-left-color: var(--orange); }
+  .pd-row.pull { border-left-color: var(--blue); }
+  .pd-row.legs { border-left-color: var(--accent); }
+  .pd-row.easy, .pd-row.long, .pd-row.tempo, .pd-row.interval, .pd-row.race { border-left-color: var(--pink); }
+  .pd-row.rest { border-left-color: var(--text-faint); opacity: 0.7; }
+  .pd-row.is-today { box-shadow: inset 0 0 0 1px var(--accent); }
+  .pd-row.status-done .pd-session,
+  .pd-row.status-skipped .pd-session,
+  .pd-row.status-postponed .pd-session { opacity: 0.55; }
+  .pd-date {
+    width: 70px; font-size: 11px; color: var(--accent); font-weight: 500;
+    flex-shrink: 0;
+  }
+  .pd-day { color: var(--text-faint); font-weight: 400; display: block; font-size: 10px; }
+  .pd-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+  .pd-text { flex: 1; min-width: 0; }
+  .pd-session { font-size: 13px; font-weight: 600; }
+  .pd-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .pd-notes { font-size: 11px; color: var(--text-faint); margin-top: 4px; line-height: 1.4; }
+
   /* ===== TODAY'S PLAN — SUGGESTION CARD ===== */
   .suggestion-card {
     background: var(--surface); border: 1px solid var(--border);
@@ -1193,6 +1339,12 @@ let state = {
   // Picked date for the next session to be started. Empty = today.
   // Set on Home before tapping a type card; carried into state.session.date.
   startDateIso: '',
+
+  // Suggestion card: which day to display relative to today (-1, 0, +1).
+  suggestionDayOffset: 0,
+
+  // Full plan view: 'daily' or 'weekly' tab.
+  planView: 'weekly',
 
   // Timer singleton
   timer: null
@@ -2113,6 +2265,9 @@ function render() {
   } else if (state.view === 'runLog') {
     root.innerHTML = renderTopBar('runLog') + renderRunLog();
     bindRunLog();
+  } else if (state.view === 'plan') {
+    root.innerHTML = renderTopBar('plan') + renderPlanView();
+    bindPlanView();
   }
 
   if (showTabs) bindTabNav();
@@ -2224,6 +2379,9 @@ function renderTopBar(context) {
   } else if (context === 'runLog') {
     left = `<button class="icon-btn" id="backBtn" aria-label="Back">←</button>`;
     mid = `<div class="title-mid">Run</div>`;
+  } else if (context === 'plan') {
+    left = `<button class="icon-btn" id="backBtn" aria-label="Back">←</button>`;
+    mid = `<div class="title-mid">Training Plan</div>`;
   }
   return `
     <div class="top-bar">
@@ -2392,14 +2550,57 @@ function renderTypeCard(id, name, subtitle, iconSvg) {
   `;
 }
 
-// Today's training plan card. Reads from state.data.plan, which the backend
-// populates from the "Plan" tab. Returns '' when no plan is set up.
+// Find the plan row for today + offset days (negative = past, positive = future).
+function findPlanForOffset(offset) {
+  const planData = state.data && state.data.plan;
+  if (!planData || !planData.rows) return null;
+  const target = new Date();
+  target.setDate(target.getDate() + (offset || 0));
+  const key = target.getMonth() + ':' + target.getDate();
+  return planData.rows.find(r => r.dateKey === key) || null;
+}
+
+function offsetLabel(offset) {
+  return offset === -1 ? 'Yesterday' : offset === 1 ? 'Tomorrow' : 'Today';
+}
+
+// Today's training plan card with yesterday/today/tomorrow tabs and a
+// "See full plan" link. Returns '' when no plan is set up at all.
 function renderSuggestionCard() {
-  const p = state.data && state.data.plan;
-  if (!p) return '';
+  const planData = state.data && state.data.plan;
+  if (!planData || !planData.rows || !planData.rows.length) return '';
+  const offset = state.suggestionDayOffset || 0;
+  const p = findPlanForOffset(offset);
+
+  const tabs = [-1, 0, 1].map(o => `
+    <button class="sg-day-tab ${o === offset ? 'on' : ''}" data-day-offset="${o}">
+      ${offsetLabel(o)}
+    </button>
+  `).join('');
+
+  let body;
+  if (!p) {
+    body = `<div class="sg-empty">No plan for ${escapeHtml(offsetLabel(offset).toLowerCase())} — outside the training block.</div>`;
+  } else {
+    body = renderSuggestionContent(p, offset);
+  }
+
+  return `
+    <div class="suggestion-wrap">
+      <div class="sg-day-tabs" role="tablist">
+        ${tabs}
+      </div>
+      ${body}
+      <button class="sg-full-plan-link" data-view-plan>See full plan →</button>
+    </div>
+  `;
+}
+
+function renderSuggestionContent(p, offset) {
   const meta = sessionMetaFromPlan(p);
   const status = (p.status || '').toString().trim().toUpperCase();
   const isPending = !status;
+  const isToday = offset === 0;
   const subline = [
     p.runKm ? p.runKm + ' km' : null,
     p.targetPace ? '@ ' + p.targetPace : null
@@ -2407,41 +2608,45 @@ function renderSuggestionCard() {
   const statusBadge = renderPlanStatusBadge(status);
 
   let actions = '';
-  if (isPending && meta.actionType) {
-    // Pending: full Start button + Skip / Postpone secondary links.
+  if (isToday && isPending && meta.actionType) {
     actions = `
       <button class="btn btn-primary btn-block sg-start" data-plan-action="${meta.actionType}" data-plan-runtype="${meta.runType || ''}">
         Start this session →
       </button>
       <div class="sg-secondary">
-        <button class="sg-link" data-plan-status="SKIPPED">Skip</button>
+        <button class="sg-link" data-plan-status="SKIPPED" data-plan-date="${escapeHtml(p.date)}">Skip</button>
         <span class="sg-sep">·</span>
-        <button class="sg-link" data-plan-status="POSTPONED">Postpone</button>
+        <button class="sg-link" data-plan-status="POSTPONED" data-plan-date="${escapeHtml(p.date)}">Postpone</button>
       </div>
     `;
-  } else if (isPending) {
-    // Pending but no action mapped (e.g. Rest day): just the rest message + secondary links.
+  } else if (isToday && isPending) {
     actions = `
       <div class="sg-rest">${escapeHtml(meta.restMessage || '')}</div>
       <div class="sg-secondary">
-        <button class="sg-link" data-plan-status="DONE">Mark done</button>
+        <button class="sg-link" data-plan-status="DONE" data-plan-date="${escapeHtml(p.date)}">Mark done</button>
         <span class="sg-sep">·</span>
-        <button class="sg-link" data-plan-status="SKIPPED">Skip</button>
+        <button class="sg-link" data-plan-status="SKIPPED" data-plan-date="${escapeHtml(p.date)}">Skip</button>
       </div>
     `;
-  } else {
-    // Decided: status set. Hide actions, but allow undoing.
+  } else if (isToday && !isPending) {
     actions = `
       <div class="sg-secondary">
-        <button class="sg-link" data-plan-status="">Undo</button>
+        <button class="sg-link" data-plan-status="" data-plan-date="${escapeHtml(p.date)}">Undo</button>
       </div>
     `;
+  } else if (!isPending) {
+    // Yesterday/Tomorrow: still let the user see the status; allow undo on yesterday.
+    actions = offset === -1 ? `
+      <div class="sg-secondary">
+        <button class="sg-link" data-plan-status="" data-plan-date="${escapeHtml(p.date)}">Undo</button>
+      </div>
+    ` : '';
   }
 
   return `
     <div class="suggestion-card ${meta.tone} ${status ? 'status-' + status.toLowerCase() : ''}">
       <div class="sg-head">
-        <span class="sg-kicker">Today's plan · Wk ${escapeHtml(String(p.week || ''))} ${escapeHtml(p.phase || '')}</span>
+        <span class="sg-kicker">${escapeHtml(p.date)} · Wk ${escapeHtml(String(p.week || ''))} ${escapeHtml(p.phase || '')}</span>
         ${statusBadge}
       </div>
       <div class="sg-main">
@@ -2464,17 +2669,212 @@ function renderPlanStatusBadge(status) {
   return '';
 }
 
-async function setPlanStatus(newStatus) {
-  const p = state.data && state.data.plan;
-  if (!p || !p.date) return;
+async function setPlanStatus(date, newStatus) {
+  if (!date) return;
   try {
-    await api('updatePlanStatus', { date: p.date, status: newStatus });
-    // Optimistic local update + refresh from backend
-    state.data.plan.status = newStatus;
+    await api('updatePlanStatus', { date: date, status: newStatus });
+    // Optimistic local update on the matching row.
+    const planData = state.data && state.data.plan;
+    if (planData && planData.rows) {
+      const row = planData.rows.find(r => r.date === date);
+      if (row) row.status = newStatus;
+    }
     render();
     await loadData();
   } catch (err) {
     toast('Could not update plan: ' + err.message, 'error');
+  }
+}
+
+// ============================================================
+// FULL PLAN VIEW
+// ============================================================
+function renderPlanView() {
+  const planData = state.data && state.data.plan;
+  if (!planData || !planData.rows || !planData.rows.length) {
+    return `<div class="empty-state">No plan loaded. Set up the "Plan" tab in your sheet first.</div>`;
+  }
+  const view = state.planView || 'weekly';
+  const tabs = `
+    <div class="plan-view-tabs">
+      <button class="${view === 'weekly' ? 'on' : ''}" data-plan-tab="weekly">Weekly</button>
+      <button class="${view === 'daily' ? 'on' : ''}" data-plan-tab="daily">Daily</button>
+    </div>
+  `;
+  const body = view === 'weekly' ? renderPlanWeekly(planData) : renderPlanDaily(planData);
+  return tabs + body;
+}
+
+function renderPlanWeekly(planData) {
+  const todayKey = (() => { const d = new Date(); return d.getMonth() + ':' + d.getDate(); })();
+  // Group rows by week.
+  const byWeek = new Map();
+  for (const r of planData.rows) {
+    const k = r.week;
+    if (!byWeek.has(k)) byWeek.set(k, []);
+    byWeek.get(k).push(r);
+  }
+  // weeks summary in same order as backend
+  const summaries = planData.weeks || [];
+  return `
+    <div class="plan-weekly">
+      ${summaries.map(w => {
+        const rows = byWeek.get(w.week) || [];
+        return renderPlanWeekCard(w, rows, todayKey);
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderPlanWeekCard(summary, rows, todayKey) {
+  const goal = [];
+  if (summary.totalKm) goal.push(summary.totalKm + ' km total');
+  if (summary.longKm) goal.push(summary.longKm + ' km long');
+  if (summary.qualitySession) goal.push(summary.qualitySession);
+  return `
+    <div class="plan-week" data-week="${escapeHtml(String(summary.week))}">
+      <div class="pw-head">
+        <div>
+          <div class="pw-title">Week ${escapeHtml(String(summary.week))} · ${escapeHtml(summary.phase)}</div>
+          <div class="pw-range mono">${escapeHtml(summary.dateStart)} – ${escapeHtml(summary.dateEnd)}</div>
+        </div>
+        <div class="pw-goal mono">${escapeHtml(goal.join(' · '))}</div>
+      </div>
+      <ul class="pw-list" data-sortable-week="${escapeHtml(String(summary.week))}">
+        ${rows.map((r, i) => renderPlanRowItem(r, i, todayKey)).join('')}
+      </ul>
+    </div>
+  `;
+}
+
+function renderPlanRowItem(r, idx, todayKey) {
+  const meta = sessionMetaFromPlan(r);
+  const status = (r.status || '').toString().trim().toUpperCase();
+  const isToday = r.dateKey === todayKey;
+  const subline = [r.runKm ? r.runKm + ' km' : null, r.targetPace ? '@ ' + r.targetPace : null]
+    .filter(Boolean).join(' · ');
+  return `
+    <li class="pw-item ${meta.tone}${isToday ? ' is-today' : ''}${status ? ' status-' + status.toLowerCase() : ''}"
+        data-row-index="${idx}"
+        data-row-date="${escapeHtml(r.date)}"
+        data-row-session="${escapeHtml(r.session || '')}"
+        data-row-runkm="${escapeHtml(r.runKm == null ? '' : String(r.runKm))}"
+        data-row-pace="${escapeHtml(r.targetPace || '')}"
+        data-row-lift="${escapeHtml(r.lift || '')}"
+        data-row-notes="${escapeHtml(r.notes || '')}">
+      <span class="pw-grip">⋮⋮</span>
+      <span class="pw-day mono">${escapeHtml(r.day)}</span>
+      <span class="pw-icon">${meta.emoji}</span>
+      <div class="pw-text">
+        <div class="pw-session">${escapeHtml(r.session || '')}</div>
+        ${subline ? `<div class="pw-sub mono">${escapeHtml(subline)}</div>` : ''}
+      </div>
+      ${status ? `<span class="pw-badge status-${status.toLowerCase()}">${status === 'DONE' ? '✓' : status === 'SKIPPED' ? '⊘' : '↪'}</span>` : ''}
+    </li>
+  `;
+}
+
+function renderPlanDaily(planData) {
+  // Same grouping but each week renders as a header + flat list (no drag).
+  const byWeek = new Map();
+  for (const r of planData.rows) {
+    const k = r.week;
+    if (!byWeek.has(k)) byWeek.set(k, []);
+    byWeek.get(k).push(r);
+  }
+  const todayKey = (() => { const d = new Date(); return d.getMonth() + ':' + d.getDate(); })();
+  return `
+    <div class="plan-daily">
+      ${(planData.weeks || []).map(w => `
+        <div class="pd-week">
+          <div class="pd-wk-head">Week ${escapeHtml(String(w.week))} · ${escapeHtml(w.phase)} · <span class="mono">${escapeHtml(w.dateStart)}–${escapeHtml(w.dateEnd)}</span></div>
+          <div class="pd-rows">
+            ${(byWeek.get(w.week) || []).map(r => {
+              const meta = sessionMetaFromPlan(r);
+              const status = (r.status || '').toString().trim().toUpperCase();
+              const isToday = r.dateKey === todayKey;
+              const subline = [r.runKm ? r.runKm + ' km' : null, r.targetPace ? '@ ' + r.targetPace : null]
+                .filter(Boolean).join(' · ');
+              return `
+                <div class="pd-row ${meta.tone}${isToday ? ' is-today' : ''}${status ? ' status-' + status.toLowerCase() : ''}">
+                  <span class="pd-date mono">${escapeHtml(r.date)} <span class="pd-day">${escapeHtml(r.day)}</span></span>
+                  <span class="pd-icon">${meta.emoji}</span>
+                  <div class="pd-text">
+                    <div class="pd-session">${escapeHtml(r.session || '')}</div>
+                    ${subline ? `<div class="pd-sub mono">${escapeHtml(subline)}</div>` : ''}
+                    ${r.notes ? `<div class="pd-notes">${escapeHtml(r.notes)}</div>` : ''}
+                  </div>
+                  ${status ? `<span class="pw-badge status-${status.toLowerCase()}">${status === 'DONE' ? '✓' : status === 'SKIPPED' ? '⊘' : '↪'}</span>` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function bindPlanView() {
+  const back = document.getElementById('backBtn');
+  if (back) back.addEventListener('click', () => { state.view = 'home'; render(); });
+  document.getElementById('settingsBtn').addEventListener('click', openSettings);
+
+  document.querySelectorAll('[data-plan-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.planView = btn.dataset.planTab;
+      render();
+    });
+  });
+
+  // Drag-to-reorder on Weekly view. SortableJS is loaded via CDN with `defer`,
+  // so it may not be ready on first render — guard with a check + retry.
+  enableWeekSortable();
+}
+
+function enableWeekSortable() {
+  if (typeof Sortable === 'undefined') {
+    // Library not loaded yet — retry shortly.
+    setTimeout(enableWeekSortable, 120);
+    return;
+  }
+  document.querySelectorAll('[data-sortable-week]').forEach(ul => {
+    if (ul._sortableAttached) return;
+    ul._sortableAttached = true;
+    Sortable.create(ul, {
+      animation: 160,
+      delay: 250,           // long-press delay on touch
+      delayOnTouchOnly: true,
+      handle: '.pw-grip',   // also accept drag from the grip handle
+      draggable: '.pw-item',
+      ghostClass: 'pw-ghost',
+      chosenClass: 'pw-chosen',
+      onEnd: function (evt) {
+        if (evt.oldIndex === evt.newIndex) return;
+        const week = ul.dataset.sortableWeek;
+        const items = Array.from(ul.querySelectorAll('.pw-item'));
+        const sessions = items.map(li => ({
+          session: li.dataset.rowSession,
+          runKm: li.dataset.rowRunkm === '' ? '' : parseFloat(li.dataset.rowRunkm),
+          targetPace: li.dataset.rowPace,
+          lift: li.dataset.rowLift,
+          notes: li.dataset.rowNotes
+        }));
+        savePlanWeekOrder(week, sessions);
+      }
+    });
+  });
+}
+
+async function savePlanWeekOrder(week, sessions) {
+  toast('Saving new order…');
+  try {
+    await api('updatePlanWeek', { week: week, sessions: sessions });
+    toast('Plan reordered', 'success');
+    await loadData();
+  } catch (err) {
+    toast('Reorder failed: ' + err.message, 'error');
+    await loadData(); // refresh so the view reflects the actual sheet
   }
 }
 
@@ -2571,8 +2971,23 @@ function bindHome() {
   // Suggestion card status links: Skip / Postpone / Mark done / Undo.
   document.querySelectorAll('[data-plan-status]').forEach(btn => {
     btn.addEventListener('click', () => {
-      setPlanStatus(btn.dataset.planStatus);
+      setPlanStatus(btn.dataset.planDate, btn.dataset.planStatus);
     });
+  });
+
+  // Yesterday / Today / Tomorrow tabs on the suggestion card.
+  document.querySelectorAll('[data-day-offset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.suggestionDayOffset = parseInt(btn.dataset.dayOffset, 10) || 0;
+      render();
+    });
+  });
+
+  // "See full plan →" link on the suggestion card.
+  const fullPlanLink = document.querySelector('[data-view-plan]');
+  if (fullPlanLink) fullPlanLink.addEventListener('click', () => {
+    state.view = 'plan';
+    render();
   });
   // Calendar navigation
   const prev = document.getElementById('calPrev');
