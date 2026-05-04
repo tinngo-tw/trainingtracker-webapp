@@ -862,6 +862,66 @@
   .chart-svg .pt { fill: var(--accent); }
   .chart-svg .pt-last { fill: var(--accent); stroke: var(--accent-ink); stroke-width: 2; }
 
+  /* ===== TODAY'S PLAN — SUGGESTION CARD ===== */
+  .suggestion-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-left-width: 4px;
+    border-radius: var(--radius); padding: 16px 18px;
+    margin-bottom: 18px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .suggestion-card.push  { border-left-color: var(--orange); }
+  .suggestion-card.pull  { border-left-color: var(--blue); }
+  .suggestion-card.legs  { border-left-color: var(--accent); }
+  .suggestion-card.easy,
+  .suggestion-card.long,
+  .suggestion-card.tempo,
+  .suggestion-card.interval,
+  .suggestion-card.race  { border-left-color: var(--pink); }
+  .suggestion-card.rest  { border-left-color: var(--text-faint); opacity: 0.85; }
+
+  .suggestion-card .sg-head {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .suggestion-card .sg-kicker {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-faint); font-weight: 700;
+  }
+  .suggestion-card .sg-done {
+    font-size: 10px; padding: 3px 8px; border-radius: 999px;
+    background: rgba(232,255,58,0.15); color: var(--accent);
+    border: 1px solid rgba(232,255,58,0.4);
+    font-weight: 700; letter-spacing: 0.06em;
+  }
+  .suggestion-card .sg-main {
+    display: flex; align-items: center; gap: 14px;
+  }
+  .suggestion-card .sg-icon {
+    font-size: 38px; line-height: 1; flex-shrink: 0;
+  }
+  .suggestion-card .sg-text { flex: 1; min-width: 0; }
+  .suggestion-card .sg-session {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 18px; letter-spacing: -0.01em;
+    text-transform: uppercase; color: var(--text);
+  }
+  .suggestion-card .sg-sub {
+    font-size: 13px; color: var(--accent);
+    margin-top: 4px;
+  }
+  .suggestion-card .sg-notes {
+    font-size: 12px; color: var(--text-dim);
+    margin-top: 4px; line-height: 1.4;
+  }
+  .suggestion-card .sg-start {
+    font-family: 'Archivo Black', sans-serif;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .suggestion-card .sg-rest {
+    font-size: 13px; color: var(--text-dim); font-style: italic;
+    text-align: center; padding: 6px 0;
+  }
+
   /* ===== RUNNING TRACKER ===== */
   .running-section { margin-bottom: 18px; }
   .running-section .section-title { margin-top: 4px; }
@@ -1305,12 +1365,11 @@ function isCompound(name) {
   return cs.some(k => n.includes(k));
 }
 
+// Rest defaults are intentionally binary so the timer is predictable: 4 min
+// for big compound lifts, 2 min for everything else. Override per-exercise
+// is still possible through the backend if needed.
 function suggestedRest(name) {
-  const n = (name || '').toLowerCase();
-  const iso = ['curl','raise','fly','flye','pushdown','extension','calf','abs','crunch','sit up','situp','face pull','hip','abduct','adduct'];
-  if (iso.some(k => n.includes(k))) return 90;
-  if (isCompound(name)) return 240;
-  return 180;
+  return isCompound(name) ? 240 : 120;
 }
 
 // ============================================================
@@ -2222,6 +2281,8 @@ function renderHome() {
 
     ${renderCalendar(trainedDays)}
 
+    ${renderSuggestionCard()}
+
     <div class="section-title">
       <h3>Start Session</h3>
       ${renderStartDatePicker()}
@@ -2310,6 +2371,78 @@ function renderTypeCard(id, name, subtitle, iconSvg) {
   `;
 }
 
+// Today's training plan card. Reads from state.data.plan, which the backend
+// populates from the "Plan" tab. Returns '' when no plan is set up.
+function renderSuggestionCard() {
+  const p = state.data && state.data.plan;
+  if (!p) return '';
+  const meta = sessionMetaFromPlan(p);
+  const isDone = (p.status || '').toUpperCase() === 'DONE';
+  const subline = [
+    p.runKm ? p.runKm + ' km' : null,
+    p.targetPace ? '@ ' + p.targetPace : null
+  ].filter(Boolean).join(' · ');
+
+  return `
+    <div class="suggestion-card ${meta.tone}">
+      <div class="sg-head">
+        <span class="sg-kicker">Today's plan · Wk ${escapeHtml(String(p.week || ''))} ${escapeHtml(p.phase || '')}</span>
+        ${isDone ? '<span class="sg-done">✓ DONE</span>' : ''}
+      </div>
+      <div class="sg-main">
+        <span class="sg-icon">${meta.emoji}</span>
+        <div class="sg-text">
+          <div class="sg-session">${escapeHtml(p.session || '')}</div>
+          ${subline ? `<div class="sg-sub mono">${escapeHtml(subline)}</div>` : ''}
+          ${p.notes ? `<div class="sg-notes">${escapeHtml(p.notes)}</div>` : ''}
+        </div>
+      </div>
+      ${meta.actionType ? `
+        <button class="btn btn-primary btn-block sg-start" data-plan-action="${meta.actionType}" data-plan-runtype="${meta.runType || ''}">
+          Start this session →
+        </button>
+      ` : `
+        <div class="sg-rest">${meta.restMessage || ''}</div>
+      `}
+    </div>
+  `;
+}
+
+// Map a plan row's "Session" to an emoji + how the Start button should behave.
+function sessionMetaFromPlan(p) {
+  const sess = (p.session || '').toLowerCase();
+  const lift = (p.lift || '').toLowerCase();
+  if (lift === 'push' || sess.indexOf('push') !== -1) {
+    return { emoji: '🏋️‍♂️', tone: 'push', actionType: 'push' };
+  }
+  if (lift === 'pull' || sess.indexOf('pull') !== -1) {
+    return { emoji: '💪', tone: 'pull', actionType: 'pull' };
+  }
+  if (lift === 'legs' || sess.indexOf('legs') !== -1 || sess.indexOf('leg') !== -1) {
+    return { emoji: '🦿', tone: 'legs', actionType: 'legs' };
+  }
+  if (sess.indexOf('rest') !== -1) {
+    return { emoji: '😴', tone: 'rest', actionType: null, restMessage: 'Rest day. Eat well, sleep more.' };
+  }
+  if (sess.indexOf('race') !== -1) {
+    return { emoji: '🏁', tone: 'race', actionType: 'cardio', runType: 'long' };
+  }
+  if (sess.indexOf('long') !== -1) {
+    return { emoji: '🏔️', tone: 'long', actionType: 'cardio', runType: 'long' };
+  }
+  if (sess.indexOf('interval') !== -1) {
+    return { emoji: '⚡', tone: 'interval', actionType: 'cardio', runType: 'interval' };
+  }
+  if (sess.indexOf('hmp') !== -1 || sess.indexOf('tempo') !== -1 || sess.indexOf('tune-up') !== -1 || sess.indexOf('strides') !== -1) {
+    return { emoji: '🔥', tone: 'tempo', actionType: 'cardio', runType: 'interval' };
+  }
+  if (sess.indexOf('easy') !== -1 || sess.indexOf('recovery') !== -1 || sess.indexOf('jog') !== -1 || sess.indexOf('shakeout') !== -1) {
+    return { emoji: '🏃', tone: 'easy', actionType: 'cardio', runType: 'easy' };
+  }
+  // Unknown — show the icon but no action.
+  return { emoji: '📋', tone: '', actionType: null, restMessage: 'No matching session type.' };
+}
+
 // "Logging for · April 22 ✎" pill that opens a native date picker. Sits in
 // the Start Session header. The chosen ISO date drives the next session.
 function renderStartDatePicker() {
@@ -2338,6 +2471,31 @@ function bindHome() {
   if (startDateIn) startDateIn.addEventListener('change', e => {
     state.startDateIso = e.target.value || '';
     render();
+  });
+
+  // Suggestion card start button — pre-selects run type when relevant.
+  const sgStart = document.querySelector('[data-plan-action]');
+  if (sgStart) sgStart.addEventListener('click', () => {
+    const action = sgStart.dataset.planAction;
+    const runType = sgStart.dataset.planRuntype;
+    if (action === 'cardio' && runType) {
+      // Mirror startSession('cardio') but pre-select the run sub-type so the
+      // user lands directly on the entry form for the right run type.
+      const sessionDate = state.startDateIso
+        ? (isoToMonthDay(state.startDateIso) || todayFormatted())
+        : todayFormatted();
+      state.runLog = {
+        phase: 'entry', runType: runType,
+        distance: '', acc: '', notes: '',
+        pace: '',
+        sets: '', highestPace: '', lowestPace: '',
+        saving: false, date: sessionDate
+      };
+      state.view = 'runLog';
+      render();
+    } else {
+      startSession(action);
+    }
   });
   // Calendar navigation
   const prev = document.getElementById('calPrev');
@@ -2863,7 +3021,9 @@ function renderExercise() {
   const a = state.active;
   if (!a) return '';
   const exMeta = findExercise(a.name);
-  const history = exMeta ? exMeta.history : [];
+  // Filter to in-window entries (current training block) so the strip doesn't
+  // bleed in rows from older tabs that have unrelated date/exercise structures.
+  const history = exMeta ? (exMeta.history || []).filter(isSheet8Entry) : [];
   const warmupCount = a.warmupSets.length;
   const workingCount = a.workingSets.length;
   const currentSetNum = a.phase === 'warmup' ? warmupCount + 1 : workingCount + 1;
@@ -3041,7 +3201,7 @@ function renderTimer(a) {
       <div class="t-display ${remaining <= 10 && remaining >= 0 ? 'pulse' : ''}">
         ${isOver ? '+' : ''}${formatTime(Math.abs(remaining))}
       </div>
-      <div class="t-suggest">Suggested: ${formatTime(total)} · ${isCompound(a.name) ? 'Compound' : (a.restSec <= 90 ? 'Isolation' : 'Medium')}</div>
+      <div class="t-suggest">Suggested: ${formatTime(total)} · ${isCompound(a.name) ? 'Compound' : 'Isolation'}</div>
       <div class="t-actions">
         <button class="btn" id="addTimeBtn">+30s</button>
         <button class="btn" id="resetTimerBtn">Reset</button>
