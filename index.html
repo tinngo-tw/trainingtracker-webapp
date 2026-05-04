@@ -864,36 +864,49 @@
   .chart-svg .pt { fill: var(--accent); }
   .chart-svg .pt-last { fill: var(--accent); stroke: var(--accent-ink); stroke-width: 2; }
 
-  /* ===== TODAY'S PLAN — SUGGESTION CARD WRAPPER ===== */
+  /* ===== TODAY'S PLAN — SUGGESTION CARD WRAPPER (swipeable) ===== */
   .suggestion-wrap { margin-bottom: 18px; }
-  .sg-day-tabs {
-    display: grid; grid-template-columns: 1fr 1fr 1fr;
-    background: var(--surface-2); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); padding: 4px; gap: 2px;
-    margin-bottom: 8px;
+  .sg-swiper {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    /* Pull edge-to-edge with the page padding. */
+    margin: 0 -16px;
+    padding: 0 16px;
+    gap: 12px;
+    /* Hide scrollbar visually (still scrollable). */
+    scrollbar-width: none;
   }
-  .sg-day-tab {
-    padding: 9px 8px; border-radius: 8px;
-    background: transparent; border: 0;
-    color: var(--text-dim); font-weight: 600; font-size: 12px;
-    text-transform: uppercase; letter-spacing: 0.06em;
-    cursor: pointer;
+  .sg-swiper::-webkit-scrollbar { display: none; }
+  .sg-slide {
+    flex: 0 0 100%;
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
   }
-  .sg-day-tab.on { background: var(--surface-3); color: var(--text); }
-  .sg-empty {
+  .sg-empty-slide {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 18px;
+    border-radius: var(--radius); padding: 22px;
+    text-align: center; color: var(--text-faint);
+  }
+  .sg-empty-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-faint); font-weight: 700; margin-bottom: 8px;
+  }
+  .sg-empty {
     color: var(--text-faint); font-size: 13px; text-align: center;
   }
-  .sg-full-plan-link {
-    display: block; width: 100%; margin-top: 10px;
-    padding: 10px; border-radius: var(--radius-sm);
-    background: transparent; border: 1px dashed var(--border);
-    color: var(--text-dim); font-size: 12px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.08em;
-    cursor: pointer;
+  .sg-dots {
+    display: flex; justify-content: center; gap: 6px; margin-top: 10px;
   }
-  .sg-full-plan-link:active { color: var(--accent); border-color: var(--accent); }
+  .sg-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--border-bright);
+    cursor: pointer;
+    transition: background .2s, width .2s;
+  }
+  .sg-dot.on { background: var(--accent); width: 18px; border-radius: 999px; }
 
   /* ===== FULL PLAN VIEW ===== */
   .plan-view-tabs {
@@ -2243,7 +2256,7 @@ function render() {
   if (existing) existing.remove();
 
   // Only show tab nav on home and progress views
-  const showTabs = ['home', 'progress', 'exDetail'].includes(state.view);
+  const showTabs = ['home', 'progress', 'plan', 'exDetail'].includes(state.view);
   tabNav.className = 'tab-nav' + (showTabs ? ' show' : '');
   tabNav.innerHTML = showTabs ? renderTabNav() : '';
 
@@ -2346,6 +2359,10 @@ function renderTabNav() {
     <button class="tab ${v === 'home' ? 'on' : ''}" data-nav="home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12 L12 4 L21 12 M5 10 V20 H19 V10"/></svg>
       Home
+    </button>
+    <button class="tab ${v === 'plan' ? 'on' : ''}" data-nav="plan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8 H16 M8 12 H16 M8 16 H13"/></svg>
+      Plan
     </button>
     <button class="tab ${v === 'progress' || v === 'exDetail' ? 'on' : ''}" data-nav="progress">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 20 L9 14 L13 18 L21 6 M21 6 H16 M21 6 V11"/></svg>
@@ -2564,34 +2581,84 @@ function offsetLabel(offset) {
   return offset === -1 ? 'Yesterday' : offset === 1 ? 'Tomorrow' : 'Today';
 }
 
-// Today's training plan card with yesterday/today/tomorrow tabs and a
-// "See full plan" link. Returns '' when no plan is set up at all.
+// Center the today slide on render and keep the dots in sync as the user
+// swipes. Uses native scroll-snap so the gesture feels physical.
+function initSuggestionSwiper() {
+  const swiper = document.getElementById('sgSwiper');
+  if (!swiper) return;
+  // Find the today slide (offset=0) and snap to it without animation on first
+  // paint. Without this, the scroller would default to the first slide
+  // (yesterday) which isn't what the user wants to see by default.
+  const slides = swiper.querySelectorAll('.sg-slide');
+  let today = null;
+  slides.forEach(s => { if (s.dataset.slideOffset === '0') today = s; });
+  if (today) {
+    // Use scrollLeft directly so it's instant + ignores smooth-scroll CSS.
+    swiper.scrollLeft = today.offsetLeft;
+  }
+  // Update dot indicator as the user scrolls.
+  const dots = document.querySelectorAll('.sg-dot');
+  const updateDots = () => {
+    const center = swiper.scrollLeft + swiper.clientWidth / 2;
+    let activeOffset = 0;
+    let bestDist = Infinity;
+    slides.forEach(s => {
+      const sCenter = s.offsetLeft + s.offsetWidth / 2;
+      const d = Math.abs(sCenter - center);
+      if (d < bestDist) { bestDist = d; activeOffset = parseInt(s.dataset.slideOffset, 10) || 0; }
+    });
+    dots.forEach(dot => {
+      dot.classList.toggle('on', parseInt(dot.dataset.dot, 10) === activeOffset);
+    });
+    state.suggestionDayOffset = activeOffset;
+  };
+  swiper.addEventListener('scroll', () => {
+    // Throttle via rAF — scroll fires a lot.
+    if (swiper._rafId) return;
+    swiper._rafId = requestAnimationFrame(() => {
+      swiper._rafId = null;
+      updateDots();
+    });
+  }, { passive: true });
+  // Tap a dot to jump to that slide.
+  dots.forEach(dot => {
+    dot.addEventListener('click', () => {
+      const offset = parseInt(dot.dataset.dot, 10) || 0;
+      const target = swiper.querySelector('[data-slide-offset="' + offset + '"]');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+    });
+  });
+}
+
+// Home suggestion card: a horizontal scroll-snap container with three slides
+// (yesterday, today, tomorrow). Today is centered on initial render. Users
+// swipe left/right with the finger to move between days. Dots below indicate
+// position. Returns '' when no plan is set up at all.
 function renderSuggestionCard() {
   const planData = state.data && state.data.plan;
   if (!planData || !planData.rows || !planData.rows.length) return '';
-  const offset = state.suggestionDayOffset || 0;
-  const p = findPlanForOffset(offset);
 
-  const tabs = [-1, 0, 1].map(o => `
-    <button class="sg-day-tab ${o === offset ? 'on' : ''}" data-day-offset="${o}">
-      ${offsetLabel(o)}
-    </button>
-  `).join('');
-
-  let body;
-  if (!p) {
-    body = `<div class="sg-empty">No plan for ${escapeHtml(offsetLabel(offset).toLowerCase())} — outside the training block.</div>`;
-  } else {
-    body = renderSuggestionContent(p, offset);
-  }
+  const slides = [-1, 0, 1].map(offset => {
+    const p = findPlanForOffset(offset);
+    const inner = p
+      ? renderSuggestionContent(p, offset)
+      : `<div class="suggestion-card sg-empty-slide">
+           <div class="sg-empty-label">${escapeHtml(offsetLabel(offset))}</div>
+           <div class="sg-empty">Outside the training block</div>
+         </div>`;
+    return `<div class="sg-slide" data-slide-offset="${offset}">${inner}</div>`;
+  }).join('');
 
   return `
     <div class="suggestion-wrap">
-      <div class="sg-day-tabs" role="tablist">
-        ${tabs}
+      <div class="sg-swiper" id="sgSwiper">
+        ${slides}
       </div>
-      ${body}
-      <button class="sg-full-plan-link" data-view-plan>See full plan →</button>
+      <div class="sg-dots">
+        <span class="sg-dot" data-dot="-1"></span>
+        <span class="sg-dot on" data-dot="0"></span>
+        <span class="sg-dot" data-dot="1"></span>
+      </div>
     </div>
   `;
 }
@@ -2975,20 +3042,7 @@ function bindHome() {
     });
   });
 
-  // Yesterday / Today / Tomorrow tabs on the suggestion card.
-  document.querySelectorAll('[data-day-offset]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.suggestionDayOffset = parseInt(btn.dataset.dayOffset, 10) || 0;
-      render();
-    });
-  });
-
-  // "See full plan →" link on the suggestion card.
-  const fullPlanLink = document.querySelector('[data-view-plan]');
-  if (fullPlanLink) fullPlanLink.addEventListener('click', () => {
-    state.view = 'plan';
-    render();
-  });
+  initSuggestionSwiper();
   // Calendar navigation
   const prev = document.getElementById('calPrev');
   const next = document.getElementById('calNext');
