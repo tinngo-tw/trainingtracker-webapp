@@ -942,13 +942,15 @@
   .pw-list { list-style: none; padding: 0; margin: 0; }
   .pw-item {
     display: flex; align-items: center; gap: 10px;
-    padding: 10px 8px; border-radius: var(--radius-sm);
+    padding: 12px 10px; border-radius: var(--radius-sm);
     border: 1px solid var(--border);
     background: var(--surface-2);
     margin-bottom: 6px;
     cursor: grab;
     border-left-width: 3px;
+    min-height: 64px;
   }
+  .pw-item .pw-text { display: flex; flex-direction: column; justify-content: center; }
   .pw-item:active { cursor: grabbing; }
   .pw-item.push  { border-left-color: var(--orange); }
   .pw-item.pull  { border-left-color: var(--blue); }
@@ -2736,6 +2738,48 @@ function renderPlanStatusBadge(status) {
   return '';
 }
 
+// After a session/run is saved, find the matching plan row (same date AND
+// matching session type) and mark it DONE if it's still pending. This makes
+// the Plan tab's tick reflect work the user did via the regular flows
+// (without having to also tap "Mark done" on the Suggestion card).
+//
+// `sessionDate` matches the user's display format (e.g. "May 4").
+// `sessionTypeKey` is one of 'push' | 'pull' | 'legs' | 'cardio'.
+async function autoMarkPlanDone(sessionDate, sessionTypeKey) {
+  if (!sessionDate || !sessionTypeKey) return;
+  const planData = state.data && state.data.plan;
+  if (!planData || !planData.rows) return;
+
+  // Find the plan row for this date.
+  const target = (() => {
+    const parsed = parseSheetDate(sessionDate);
+    if (!parsed) return null;
+    const key = parsed.getMonth() + ':' + parsed.getDate();
+    return planData.rows.find(r => r.dateKey === key);
+  })();
+  if (!target) return;
+
+  // Skip if already decided (DONE / SKIPPED / POSTPONED) — don't override
+  // a deliberate Skip.
+  if ((target.status || '').trim()) return;
+
+  // Type match: lift columns directly, or session text for cardio.
+  const lift = (target.lift || '').toLowerCase();
+  const sess = (target.session || '').toLowerCase();
+  const matches = (
+    (sessionTypeKey === 'push'  && (lift === 'push' || sess.indexOf('push') !== -1)) ||
+    (sessionTypeKey === 'pull'  && (lift === 'pull' || sess.indexOf('pull') !== -1)) ||
+    (sessionTypeKey === 'legs'  && (lift === 'legs' || sess.indexOf('leg')  !== -1)) ||
+    (sessionTypeKey === 'cardio' && /run|jog|interval|tempo|hmp|tune-up|strides|race/.test(sess))
+  );
+  if (!matches) return;
+
+  // Optimistic local update + persist (silent — already toasted the save).
+  target.status = 'DONE';
+  try { await api('updatePlanStatus', { date: target.date, status: 'DONE' }); }
+  catch (err) { /* swallow — the next loadData() will reconcile */ }
+}
+
 async function setPlanStatus(date, newStatus) {
   if (!date) return;
   try {
@@ -3410,9 +3454,10 @@ async function saveRunLog() {
   if (!setsString) { toast('Enter run distance', 'error'); return; }
 
   r.saving = true; render();
+  const runDate = r.date || todayFormatted();
   try {
     const res = await api('addSession', {
-      date: r.date || todayFormatted(),
+      date: runDate,
       sessionType: 'Cardio',
       entries: [{ exercise: 'Run', sets: setsString, notes: '' }]
     });
@@ -3420,6 +3465,7 @@ async function saveRunLog() {
     state.runLog = null;
     state.view = 'home';
     await loadData();
+    await autoMarkPlanDone(runDate, 'cardio');
   } catch (err) {
     toast('Save failed: ' + err.message, 'error');
     r.saving = false;
@@ -4195,12 +4241,16 @@ async function saveSession() {
   const btn = document.getElementById('finishSessionBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Saving…'; }
   const sessionTypeForQuote = s.type;
+  const sessionTypeKey = s.typeKey;
+  const sessionDate = s.date;
   try {
     const res = await api('addSession', { date: s.date, sessionType: s.type, entries: s.entries });
     toast('Session saved to ' + (res && res.tab ? '"' + res.tab + '"' : 'sheet'), 'success');
     state.session = null;
     state.view = 'home';
     await loadData();
+    // After data refreshes, mark the matching plan row DONE if there is one.
+    await autoMarkPlanDone(sessionDate, sessionTypeKey);
     showMotivationQuote(sessionTypeForQuote);
   } catch (err) {
     toast('Save failed: ' + err.message, 'error');
