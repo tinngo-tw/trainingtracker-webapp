@@ -864,6 +864,32 @@
   .chart-svg .pt { fill: var(--accent); }
   .chart-svg .pt-last { fill: var(--accent); stroke: var(--accent-ink); stroke-width: 2; }
 
+  /* ===== BODY WEIGHT HOME TRAINING — quick-access chips ===== */
+  .bw-chip-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .bw-chip {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    min-height: 56px;
+    transition: border-color .15s, transform .1s;
+  }
+  .bw-chip:active { transform: scale(0.98); border-color: var(--accent); }
+  .bw-chip-emoji { font-size: 22px; line-height: 1; flex-shrink: 0; }
+  .bw-chip-name {
+    font-size: 12px; font-weight: 600;
+    color: var(--text); line-height: 1.3;
+    flex: 1; min-width: 0;
+  }
+
   /* ===== TODAY'S PLAN — SUGGESTION CARD WRAPPER (swipeable) ===== */
   .suggestion-wrap { margin-bottom: 18px; }
   .sg-swiper {
@@ -2493,6 +2519,19 @@ function renderHome() {
     </div>
 
     <div class="section-title">
+      <h3>Body Weight Home Training</h3>
+      <span class="meta">running support</span>
+    </div>
+    <div class="bw-chip-grid">
+      ${BW_HOME_EXERCISES.map(e => `
+        <button class="bw-chip" data-bw-exercise="${escapeHtml(e.name)}">
+          <span class="bw-chip-emoji">${e.emoji}</span>
+          <span class="bw-chip-name">${escapeHtml(e.name)}</span>
+        </button>
+      `).join('')}
+    </div>
+
+    <div class="section-title">
       <h3>Recent Activity</h3>
       <span class="meta">${recent.length} shown</span>
     </div>
@@ -2738,19 +2777,26 @@ function renderPlanStatusBadge(status) {
   return '';
 }
 
-// After a session/run is saved, find the matching plan row (same date AND
-// matching session type) and mark it DONE if it's still pending. This makes
-// the Plan tab's tick reflect work the user did via the regular flows
-// (without having to also tap "Mark done" on the Suggestion card).
+// After a session/run is saved, find the plan row for that date and mark it
+// DONE. Match by DATE only, not session type.
 //
-// `sessionDate` matches the user's display format (e.g. "May 4").
-// `sessionTypeKey` is one of 'push' | 'pull' | 'legs' | 'cardio'.
+// We used to require a type match (Push session → Push-planned row), but
+// that fails whenever the user reorders the week after the fact, or trains a
+// different muscle group than what was scheduled. The user then has to
+// manually tick the row. Treating "logged a session that day" as the signal
+// is far less brittle — if you trained, the day counts.
+//
+// Rest days are still excluded: doing a session on a "Rest" day shouldn't
+// auto-mark Rest as completed. The user can manually tick if they want.
+//
+// `sessionDate` matches the display format (e.g. "May 4"). `sessionTypeKey`
+// is accepted but not used for matching — kept in the signature so call
+// sites stay readable about what kind of session was logged.
 async function autoMarkPlanDone(sessionDate, sessionTypeKey) {
-  if (!sessionDate || !sessionTypeKey) return;
+  if (!sessionDate) return;
   const planData = state.data && state.data.plan;
   if (!planData || !planData.rows) return;
 
-  // Find the plan row for this date.
   const target = (() => {
     const parsed = parseSheetDate(sessionDate);
     if (!parsed) return null;
@@ -2759,25 +2805,16 @@ async function autoMarkPlanDone(sessionDate, sessionTypeKey) {
   })();
   if (!target) return;
 
-  // Skip if already decided (DONE / SKIPPED / POSTPONED) — don't override
-  // a deliberate Skip.
+  // Skip if already decided (DONE / SKIPPED / POSTPONED).
   if ((target.status || '').trim()) return;
 
-  // Type match: lift columns directly, or session text for cardio.
-  const lift = (target.lift || '').toLowerCase();
+  // Don't auto-mark Rest days even if a workout was logged that day.
   const sess = (target.session || '').toLowerCase();
-  const matches = (
-    (sessionTypeKey === 'push'  && (lift === 'push' || sess.indexOf('push') !== -1)) ||
-    (sessionTypeKey === 'pull'  && (lift === 'pull' || sess.indexOf('pull') !== -1)) ||
-    (sessionTypeKey === 'legs'  && (lift === 'legs' || sess.indexOf('leg')  !== -1)) ||
-    (sessionTypeKey === 'cardio' && /run|jog|interval|tempo|hmp|tune-up|strides|race/.test(sess))
-  );
-  if (!matches) return;
+  if (sess.indexOf('rest') !== -1) return;
 
-  // Optimistic local update + persist (silent — already toasted the save).
   target.status = 'DONE';
   try { await api('updatePlanStatus', { date: target.date, status: 'DONE' }); }
-  catch (err) { /* swallow — the next loadData() will reconcile */ }
+  catch (err) { console.warn('autoMarkPlanDone:', err); }
 }
 
 async function setPlanStatus(date, newStatus) {
@@ -3087,6 +3124,12 @@ function bindHome() {
   });
 
   initSuggestionSwiper();
+
+  // BW Home Training chips — bypass the picker and open the exercise log
+  // directly for fast at-home logging.
+  document.querySelectorAll('[data-bw-exercise]').forEach(btn => {
+    btn.addEventListener('click', () => startBwExercise(btn.dataset.bwExercise));
+  });
   // Calendar navigation
   const prev = document.getElementById('calPrev');
   const next = document.getElementById('calNext');
@@ -3107,6 +3150,25 @@ function bindHome() {
       render();
     });
   });
+}
+
+// Start a session and jump straight to logging the given exercise. Used by
+// the BW Home Training chips on Home so the user skips the picker step.
+// Uses Legs as the session type (most BW home moves are leg/glute dominant).
+function startBwExercise(exerciseName) {
+  if (!exerciseName) return;
+  const sessionDate = state.startDateIso
+    ? (isoToMonthDay(state.startDateIso) || todayFormatted())
+    : todayFormatted();
+  state.session = {
+    type: 'Legs',
+    typeKey: 'legs',
+    date: sessionDate,
+    entries: [],
+    lastExercise: null
+  };
+  state.view = 'session';
+  openExerciseScreen(exerciseName);
 }
 
 function startSession(type) {
@@ -3151,6 +3213,19 @@ const RUN_TYPES = [
   { id: 'interval', label: 'Interval', desc: 'speed work · repeats' },
   { id: 'long',     label: 'Long Run', desc: 'endurance · distance' },
   { id: 'easy',     label: 'Easy Run', desc: 'recovery · base' },
+];
+
+// Bodyweight running-support exercises. Quick-access from Home so the user
+// can log a single move at home without going through Legs → picker.
+// Each chip starts a Legs session and jumps straight into the exercise log.
+const BW_HOME_EXERCISES = [
+  { name: 'Single Leg RDL',                emoji: '🦵' },
+  { name: 'Reverse Lunge with Knee Drive', emoji: '🏃' },
+  { name: 'Cossack Squat',                 emoji: '🦿' },
+  { name: 'Dish Hold',                     emoji: '🫳' },
+  { name: 'Single Leg Hold Glute Bridge',  emoji: '🍑' },
+  { name: 'Glute Bridge',                  emoji: '🌉' },
+  { name: 'Tib Raise',                     emoji: '🦶' },
 ];
 
 function renderRunLog() {
