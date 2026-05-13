@@ -1344,6 +1344,7 @@
 // STATE
 // ============================================================
 const LS_URL = 'tt_endpoint';
+const LS_STATE = 'tt_state_v1';
 
 let state = {
   endpoint: localStorage.getItem(LS_URL) || '',
@@ -1390,6 +1391,80 @@ let state = {
   // Timer singleton
   timer: null
 };
+
+// ============================================================
+// STATE PERSISTENCE
+// ============================================================
+// Save state to localStorage on every render so closing/reopening the app
+// (PWA killed, phone restart, tab close) doesn't lose an in-progress session.
+// Restored on boot before the first render so the user lands back where they
+// left off — including a running rest timer (we save startedAt and recompute
+// remaining on resume, so the timer ticks "naturally" while the app is closed).
+function persistState() {
+  try {
+    const snap = {
+      v: 1,
+      view: state.view,
+      session: state.session,
+      active: state.active ? {
+        name: state.active.name,
+        restSec: state.active.restSec,
+        warmupSets: state.active.warmupSets,
+        workingSets: state.active.workingSets,
+        phase: state.active.phase,
+        current: state.active.current,
+        editingSet: state.active.editingSet,
+        timer: state.active.timer ? {
+          total: state.active.timer.total,
+          remaining: state.active.timer.remaining,
+          startedAt: state.active.timer.startedAt,
+          alerted: state.active.timer.alerted
+        } : null
+      } : null,
+      runLog: state.runLog,
+      startDateIso: state.startDateIso,
+      suggestionDayOffset: state.suggestionDayOffset,
+      planView: state.planView,
+      runningMetric: state.runningMetric,
+      progress: state.progress,
+      calendar: state.calendar
+    };
+    localStorage.setItem(LS_STATE, JSON.stringify(snap));
+  } catch (e) { /* quota or storage disabled — ignore */ }
+}
+
+function restorePersistedState() {
+  try {
+    const raw = localStorage.getItem(LS_STATE);
+    if (!raw) return;
+    const snap = JSON.parse(raw);
+    if (!snap || snap.v !== 1) return;
+    if (snap.view) state.view = snap.view;
+    if (snap.session) state.session = snap.session;
+    if (snap.active) {
+      state.active = snap.active;
+      if (state.active.timer && state.active.timer.startedAt) {
+        // Time passed while the app was closed — recompute remaining and
+        // re-arm the ticker so the UI continues counting down naturally.
+        const elapsed = (Date.now() - state.active.timer.startedAt) / 1000;
+        state.active.timer.remaining = state.active.timer.total - elapsed;
+        if (state.timer) clearInterval(state.timer);
+        state.timer = setInterval(tickTimer, 250);
+      }
+    }
+    if (snap.runLog) state.runLog = snap.runLog;
+    if (snap.startDateIso) state.startDateIso = snap.startDateIso;
+    if (snap.suggestionDayOffset != null) state.suggestionDayOffset = snap.suggestionDayOffset;
+    if (snap.planView) state.planView = snap.planView;
+    if (snap.runningMetric) state.runningMetric = snap.runningMetric;
+    if (snap.progress) state.progress = snap.progress;
+    if (snap.calendar) state.calendar = snap.calendar;
+  } catch (e) { /* corrupt snapshot — ignore, start fresh */ }
+}
+
+function clearPersistedState() {
+  try { localStorage.removeItem(LS_STATE); } catch (e) {}
+}
 
 // ============================================================
 // MUSCLE MAPPING
@@ -2325,6 +2400,11 @@ function render() {
     document.body.insertAdjacentHTML('beforeend', renderDaySheet());
     bindDaySheet();
   }
+
+  // After every render, snapshot state to localStorage so closing the app
+  // mid-session preserves everything (logged sets, active timer, run-log
+  // draft, picked date).
+  persistState();
 }
 
 function renderDaySheet() {
@@ -3539,6 +3619,7 @@ async function saveRunLog() {
     toast('Run saved to ' + (res && res.tab ? '"' + res.tab + '"' : 'sheet'), 'success');
     state.runLog = null;
     state.view = 'home';
+    clearPersistedState();
     await loadData();
     await autoMarkPlanDone(runDate, 'cardio');
   } catch (err) {
@@ -3896,7 +3977,8 @@ function bindExercise() {
   document.querySelectorAll('[data-phase]').forEach(btn => {
     btn.addEventListener('click', () => {
       a.phase = btn.dataset.phase;
-      a.current = { weight: '', reps: '', note: '' };
+      // Preserve current weight/reps/note when switching phases — warmup
+      // weight often carries over to the working set's starting estimate.
       render();
     });
   });
@@ -4106,23 +4188,49 @@ function beep() {
   } catch (e) {}
 }
 
-function finishExercise() {
+async function finishExercise() {
   const a = state.active;
   if (a.workingSets.length === 0) { toast('Log at least one working set', 'error'); return; }
   const setsString = formatExerciseSets(a.warmupSets, a.workingSets);
   // Per-set notes are embedded inside setsString (e.g. "16x8 (ds 14x6)").
   // Exercise-level notes field kept empty for backend compatibility.
-  state.session.entries.push({
-    exercise: a.name,
-    sets: setsString,
-    notes: ''
-  });
+  const entry = { exercise: a.name, sets: setsString, notes: '' };
+  state.session.entries.push(entry);
   state.session.lastExercise = a.name;
   if (state.timer) { clearInterval(state.timer); state.timer = null; }
   state.active = null;
   state.view = 'session';
-  toast('Saved ' + a.name, 'success');
+  toast('Saving ' + entry.exercise + '…', 'success');
   render();
+  // Save to the sheet immediately so the row is permanent — if the app
+  // crashes mid-session the user keeps everything finished so far.
+  try {
+    await saveExerciseToSheet(entry);
+  } catch (err) {
+    toast('Sheet save failed: ' + err.message + ' — tap Finish Session to retry', 'error');
+  }
+}
+
+// First exercise of a session: create the block via addSession and remember
+// the start row. Subsequent exercises: append to that block.
+async function saveExerciseToSheet(entry) {
+  const s = state.session;
+  if (!s) return null;
+  if (!s.startRow) {
+    const res = await api('addSession', {
+      date: s.date,
+      sessionType: s.type,
+      entries: [entry]
+    });
+    if (res && res.startRow) s.startRow = res.startRow;
+    return res;
+  }
+  return await api('appendExercise', {
+    startRow: s.startRow,
+    exercise: entry.exercise,
+    sets: entry.sets,
+    notes: entry.notes
+  });
 }
 
 // ============================================================
@@ -4313,24 +4421,18 @@ function showMotivationQuote(sessionType) {
 async function saveSession() {
   const s = state.session;
   if (!s || s.entries.length === 0) { toast('Nothing to save', 'error'); return; }
-  const btn = document.getElementById('finishSessionBtn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Saving…'; }
+  // Exercises are saved exercise-by-exercise in finishExercise(), so this
+  // button just finalizes the session: clear local state, mark plan done,
+  // show the motivation quote. No backend write here.
   const sessionTypeForQuote = s.type;
   const sessionTypeKey = s.typeKey;
   const sessionDate = s.date;
-  try {
-    const res = await api('addSession', { date: s.date, sessionType: s.type, entries: s.entries });
-    toast('Session saved to ' + (res && res.tab ? '"' + res.tab + '"' : 'sheet'), 'success');
-    state.session = null;
-    state.view = 'home';
-    await loadData();
-    // After data refreshes, mark the matching plan row DONE if there is one.
-    await autoMarkPlanDone(sessionDate, sessionTypeKey);
-    showMotivationQuote(sessionTypeForQuote);
-  } catch (err) {
-    toast('Save failed: ' + err.message, 'error');
-    if (btn) { btn.disabled = false; btn.textContent = 'Finish & Save Session'; }
-  }
+  state.session = null;
+  state.view = 'home';
+  clearPersistedState();
+  await loadData();
+  await autoMarkPlanDone(sessionDate, sessionTypeKey);
+  showMotivationQuote(sessionTypeForQuote);
 }
 
 // ============================================================
@@ -4939,6 +5041,10 @@ function handleTimerAction(action) {
 // ============================================================
 // BOOT
 // ============================================================
+// Restore any persisted in-progress session/timer/run-log BEFORE the first
+// render so the user lands back where they left off if they closed the app
+// mid-workout.
+restorePersistedState();
 if (state.endpoint) loadData(); else render();
 
 // ============================================================
